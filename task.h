@@ -4,7 +4,11 @@ typedef struct
     float phase;
     float period;
     float deadline;
-    float wcet;
+    float wcet; // Worst-case execution time.
+    float *response_times;
+    float *execution_times;
+    float *execution_freqs;
+    int num_instances;
 }
 Task;
 
@@ -15,3 +19,11 @@ void print_tasks();
 int sort_tasks_comparator(const void *, const void *);
 void sort_tasks();
 void delete_tasks();
+
+// Functions related to the statistics of execution.
+void capture_and_print_task_statistics();
+void print_response_times();
+void print_response_time_jitters();
+void print_execution_times();
+void print_waiting_times();
+void print_execution_freqs();

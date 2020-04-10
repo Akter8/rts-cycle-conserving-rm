@@ -7,14 +7,17 @@ output_file = output_file.txt
 
 
 # Make.
-all: $(driver).o task.o utility.o
-	$(CC)  $(driver).o task.o utility.c -o $(executableName) -lm
+all: $(driver).o task.o job.o utility.o
+	$(CC)  $(driver).o task.o job.o utility.c -o $(executableName) -lm
 
 $(driver).o: $(driver).c
 	$(CC) $(flags) $(driver).c
 
 task.o: task.c
 	$(CC) $(flags) task.c
+
+job.o: job.c
+	$(CC) $(flags) job.c
 
 utility.o: utility.c
 	$(CC) $(flags) utility.c
