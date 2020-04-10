@@ -6,6 +6,7 @@
 #include "utility.h"
 #include "task.h"
 #include "job.h"
+#include "freq_and_voltage.h"
 
 extern FILE *input_tasks_file;
 extern FILE *output_file;
@@ -19,6 +20,7 @@ extern int num_jobs;
 extern Job *jobs;
 
 extern Freq_and_voltage *freq_and_voltage;
+
 
 /*
  * Pre-condition: An uninitialised variable num_tasks.
@@ -35,6 +37,7 @@ create_tasks()
 
     return;
 }
+
 
 /*
  * Pre-condition: An unitialised malloc array of tasks.
@@ -64,6 +67,7 @@ input_tasks()
     return;
 }
 
+
 /*
  * Pre-condition: Task data.
  * Post-condition: Nothing.
@@ -85,6 +89,7 @@ print_tasks()
 
     return;
 }
+
 
 /*
  * Pre-condition: Two different tasks.
@@ -342,8 +347,8 @@ print_execution_freqs()
 
 
 /*
- * Pre-condition:
- * Post-condition:
+ * Pre-condition: Valid response time and execution time data from jobs that finished execution.
+ * Post-condition: Finds the task-wise response, execution and waiting time and the statistics associated with them.
  */
 void 
 capture_and_print_task_statistics()
@@ -406,8 +411,8 @@ find_max_phase()
 
 
 /*
- * Pre-condition:
- * Post-condition:
+ * Pre-condition: Variables containing the heap data.
+ * Post-condition: Frees and deallocates the heap data.
  */
 void
 delete_tasks()

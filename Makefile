@@ -7,8 +7,8 @@ output_file = output_file.txt
 
 
 # Make.
-all: $(driver).o task.o job.o utility.o
-	$(CC)  $(driver).o task.o job.o utility.c -o $(executableName) -lm
+all: $(driver).o task.o job.o freq_and_voltage.o scheduler.o utility.o
+	$(CC)  $(driver).o task.o job.o freq_and_voltage.o scheduler.o utility.o -o $(executableName) -lm
 
 $(driver).o: $(driver).c
 	$(CC) $(flags) $(driver).c
@@ -18,6 +18,12 @@ task.o: task.c
 
 job.o: job.c
 	$(CC) $(flags) job.c
+
+freq_and_voltage.o: freq_and_voltage.c
+	$(CC) $(flags) freq_and_voltage.c
+
+scheduler.o: scheduler.c
+	$(CC) $(flags) scheduler.c
 
 utility.o: utility.c
 	$(CC) $(flags) utility.c

@@ -12,8 +12,6 @@ extern FILE *input_tasks_file;
 extern Task *tasks;
 
 extern FILE *input_freq_file;
-extern int num_freq_levels;
-extern Freq_and_voltage *freq_and_voltage;
 
 extern long hyperperiod;
 extern long first_in_phase_time;
@@ -68,82 +66,6 @@ file_not_null_check()
         fprintf(stderr, "ERROR: Could not open the required files.\n");
         exit(0);
     }
-
-    return;
-}
-
-
-/*
- * Pre-condition: An unitialised frequency array variable and an uninitialised variable to hold the number of frequencies.
- * Post-condition: An initialised number of frequencies variable and an initialised array containing the frequencies. 
- */
-void
-input_freq_and_voltage()
-{
-    fscanf(input_freq_file, "%d", &num_freq_levels);
-
-    freq_and_voltage = (Freq_and_voltage *) malloc(sizeof(Freq_and_voltage) * num_freq_levels);
-
-    for (int i = 0; i < num_freq_levels; i++)
-    {
-        fscanf(input_freq_file, "%f %f", &freq_and_voltage[i].freq, &freq_and_voltage[i].voltage);
-
-        if (freq_and_voltage[i].freq <= 0 || freq_and_voltage[i].freq > 1 || freq_and_voltage[i].voltage < 0)
-        {
-            fprintf(stderr, "ERROR: Invalid input in frequency input file. Please enter valid data\n");
-            exit(0);
-        }
-
-    }
-    
-
-    return;
-}
-
-
-/*
- * Pre-condition: Two frequency instances.
- * Post-condition: An integer value of the comparision between the two frequency instances.
- */
-int
-sort_freq_and_voltage_comparator(const void *a, const void *b)
-{
-    Freq_and_voltage freq_a, freq_b;
-    freq_a = *(Freq_and_voltage *) a;
-    freq_b = *(Freq_and_voltage *) b;
-
-    return (freq_a.freq > freq_b.freq) - (freq_a.freq < freq_b.freq);
-}
-
-
-/*
- * Pre-condition: An unsorted array containing frequencies.
- * Post-condition: A sorted array containing frequencies.
- */
-void
-sort_freq_and_voltage()
-{
-    qsort (freq_and_voltage, num_freq_levels, sizeof(float), sort_freq_and_voltage_comparator);
-
-    return;
-}
-
-
-/*
- * Pre-condition:
- * Post-condition:
- */
-void
-print_freq_and_voltage()
-{
-    fprintf(output_file, "------------------------------------------------------------\n");
-    fprintf(output_file, "Frequencies and voltages available (relative to Fmax).\n");
-    fprintf(output_file, "Number of levels of frequencies and voltages: %d\n", num_freq_levels);
-    for (int i = 0; i < num_freq_levels; i++)
-    {
-        fprintf(output_file, "%0.2f (%0.2fV), ", freq_and_voltage[i].freq, freq_and_voltage[i].voltage);
-    }
-    fprintf(output_file, "\n");
 
     return;
 }
@@ -276,6 +198,32 @@ calculate_num_instances_of_tasks()
     }
 
     return;
+}
+
+/*
+ * Pre-condition: The periods and wcet of all tasks.
+ * Post-condition: The CPU utilisation value for the given task-set.
+ */
+float
+find_task_utilisation()
+{
+    float task_utilisation = 0;
+    for (int i = 0; i < num_tasks; i++)
+    {
+        task_utilisation += (tasks[i].wcet / tasks[i].period);
+    }
+
+    if (task_utilisation > 1)
+    {
+        fprintf(output_file, "Task set has a utilisation: %0.2f > 1. Might NOT be able to schedule all jobs completely.\n", task_utilisation);
+    }
+    else
+    {
+        fprintf(output_file, "Task set has a utilisation: %0.2f <= 1. Might be able to schedule all jobs completely.\n", task_utilisation);
+    }
+    
+    
+    return task_utilisation;
 }
 
 

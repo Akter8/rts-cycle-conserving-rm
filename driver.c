@@ -4,6 +4,8 @@
 #include "utility.h"
 #include "task.h"
 #include "job.h"
+#include "freq_and_voltage.h"
+#include "scheduler.h"
 
 FILE *input_tasks_file;
 FILE *input_freq_file;
@@ -18,6 +20,8 @@ long end_of_execution_time;
 
 int num_freq_levels;
 Freq_and_voltage *freq_and_voltage;
+Freq_and_voltage static_freq_and_voltage;
+int static_freq_and_voltage_index;
 
 int num_jobs;
 Job *jobs;
@@ -48,6 +52,9 @@ int main(int argc, char const *argv[])
     // Print the frequencies.
     print_freq_and_voltage();
 
+    // Find the static frequency and voltage.
+    find_static_freq_and_voltage();
+
     // Create task instances.
     create_jobs();
 
@@ -57,7 +64,8 @@ int main(int argc, char const *argv[])
     // Print the job information.
     print_jobs();
 
-    // Call scheduler.
+    // Start executing task set.
+    start_scheduler();
 
     // Print job statistics.
     capture_and_print_task_statistics();
@@ -66,6 +74,8 @@ int main(int argc, char const *argv[])
     close_files();
 
     // Free task-set.
+    delete_freq_and_voltage();
+    delete_jobs();
     delete_tasks();
     
     return 0;
