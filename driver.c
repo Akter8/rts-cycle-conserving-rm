@@ -3,6 +3,7 @@
 #include "configuration.h"
 #include "utility.h"
 #include "task.h"
+#include "job.h"
 
 FILE *input_tasks_file;
 FILE *input_freq_file;
@@ -10,17 +11,21 @@ FILE *output_file;
 
 int num_tasks;
 Task *tasks;
+
 float hyperperiod;
+float first_in_phase_time;
+float end_of_execution_time;
 
 int num_freq;
 float *freq;
 
+int num_jobs;
+Job *jobs;
+
 int main(int argc, char const *argv[])
 {
     // Opening the input and output files.
-    input_tasks_file = fopen(INPUT_TASKS_FILE_NAME, "r");
-    input_freq_file = fopen(INPUT_FREQ_FILE_NAME, "r");
-    output_file = fopen(OUTPUT_FILE_NAME, "w");
+    open_files();
 
     // Read number of tasks from the input file.
     create_tasks();
@@ -34,10 +39,6 @@ int main(int argc, char const *argv[])
     // Print the task-set.
     print_tasks();
 
-    // Find the hyperperiod.
-    hyperperiod = find_hyperperiod();
-    fprintf(output_file, "\n\nHyperperiod: %0.1f\n", hyperperiod);
-
     // Input the frequencies.
     input_freq();
 
@@ -47,14 +48,24 @@ int main(int argc, char const *argv[])
     // Print the frequencies.
     print_freq();
 
+    // Create task instances.
+    create_jobs();
+
+    // Sort jobs.
+    sort_jobs();
+
+    // Print the job information.
+    print_jobs();
+
     // Call scheduler.
 
-    // Close input and output files.
-    fprintf(output_file, "\n\n--------------------------- THE END ---------------------------\n");
-    fclose(input_tasks_file);
-    fclose(input_freq_file);
-    fclose(output_file);
+    // Print job statistics.
+    capture_and_print_task_statistics();
 
+    // Close input and output files.
+    close_files();
+
+    fprintf(output_file, "abcd\n");
     // Free task-set.
     delete_tasks();
     
