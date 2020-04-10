@@ -1,0 +1,18 @@
+3
+1
+0.5
+0.75
+
+--------------------------------------------
+How to:
+First line contains the number of frequencies.
+Each subsequent line contains a number less than equal to 1 (which represents its ratio compared to Fmax).
+
+Sample inputs:
+3
+1
+0.5
+0.75
+
+--------------------------------------------
+Buggy cases:

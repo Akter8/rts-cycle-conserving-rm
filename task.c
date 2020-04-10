@@ -4,7 +4,7 @@
 #include "configuration.h"
 #include "task.h"
 
-extern FILE *input_file;
+extern FILE *input_tasks_file;
 extern FILE *output_file;
 
 extern int num_tasks;
@@ -17,7 +17,7 @@ extern Task *tasks;
 void
 create_tasks()
 {
-    fscanf(input_file, "%d", &num_tasks);
+    fscanf(input_tasks_file, "%d", &num_tasks);
 
     tasks = (Task *) malloc(sizeof(Task) * num_tasks);
 
@@ -34,7 +34,14 @@ input_tasks()
     for (int i = 0; i < num_tasks; i++)
     {
         tasks[i].task_num = i;
-        fscanf(input_file, "%f %f %f %f", &tasks[i].phase, &tasks[i].period, &tasks[i].wcet, &tasks[i].deadline);
+        fscanf(input_tasks_file, "%f %f %f %f", &tasks[i].phase, &tasks[i].period, &tasks[i].wcet, &tasks[i].deadline);
+
+        // Checks if the data inputted is valid or not.
+        if ((tasks[i].period < tasks[i].wcet) || (tasks[i].phase < 0 || tasks[i].period < 0 || tasks[i].wcet < 0 || tasks[i].deadline < 0))
+        {
+            fprintf(stderr, "Invalid task input. Please input valid data.\n");
+            exit(0);
+        }
     }
 
     return;
@@ -49,6 +56,7 @@ print_tasks()
 {
     fprintf(output_file, "------------------------------------------------------------\n");
     fprintf(output_file, "Task-set Information (sorted based on period).\n");
+    fprintf(output_file, "Number of tasks: %d\n", num_tasks);
     for (int i = 0; i < num_tasks; i++)
     {
         Task task = tasks[i];

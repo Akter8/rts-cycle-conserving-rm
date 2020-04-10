@@ -1,4 +1,5 @@
-#define INPUT_FILE_NAME "input_file.txt"
+#define INPUT_TASKS_FILE_NAME "input_tasks_file.txt"
+#define INPUT_FREQ_FILE_NAME "input_freq_file.txt"
 #define OUTPUT_FILE_NAME "output_file.txt"
 
 #define PREEMPTION_OVERHEAD 0.2
