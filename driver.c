@@ -12,12 +12,12 @@ FILE *output_file;
 int num_tasks;
 Task *tasks;
 
-float hyperperiod;
-float first_in_phase_time;
-float end_of_execution_time;
+long hyperperiod;
+long first_in_phase_time;
+long end_of_execution_time;
 
-int num_freq;
-float *freq;
+int num_freq_levels;
+Freq_and_voltage *freq_and_voltage;
 
 int num_jobs;
 Job *jobs;
@@ -40,13 +40,13 @@ int main(int argc, char const *argv[])
     print_tasks();
 
     // Input the frequencies.
-    input_freq();
+    input_freq_and_voltage();
 
     // Sort the frequencies.
-    sort_freq();
+    sort_freq_and_voltage();
 
     // Print the frequencies.
-    print_freq();
+    print_freq_and_voltage();
 
     // Create task instances.
     create_jobs();
@@ -65,7 +65,6 @@ int main(int argc, char const *argv[])
     // Close input and output files.
     close_files();
 
-    fprintf(output_file, "abcd\n");
     // Free task-set.
     delete_tasks();
     

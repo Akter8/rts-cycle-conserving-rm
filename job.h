@@ -5,10 +5,10 @@ typedef struct
     int task_num;
     int sorted_task_num;
     int instance_num;
-    float arrival_time;
+    long arrival_time;
     float wcet; // Worst-case execution time.
     float aet; // Actual execution time.
-    float absolute_deadline;
+    long absolute_deadline;
     float finish_time;
     float execution_freq;
     bool alive;

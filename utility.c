@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include "utility.h"
 #include "configuration.h"
@@ -11,12 +12,12 @@ extern FILE *input_tasks_file;
 extern Task *tasks;
 
 extern FILE *input_freq_file;
-extern int num_freq;
-extern float *freq;
+extern int num_freq_levels;
+extern Freq_and_voltage *freq_and_voltage;
 
-extern float hyperperiod;
-float first_in_phase_time;
-extern float end_of_execution_time;
+extern long hyperperiod;
+extern long first_in_phase_time;
+extern long end_of_execution_time;
 
 extern FILE *output_file;
 
@@ -77,17 +78,17 @@ file_not_null_check()
  * Post-condition: An initialised number of frequencies variable and an initialised array containing the frequencies. 
  */
 void
-input_freq()
+input_freq_and_voltage()
 {
-    fscanf(input_freq_file, "%d", &num_freq);
+    fscanf(input_freq_file, "%d", &num_freq_levels);
 
-    freq = (float *) malloc(sizeof(float) * num_freq);
+    freq_and_voltage = (Freq_and_voltage *) malloc(sizeof(Freq_and_voltage) * num_freq_levels);
 
-    for (int i = 0; i < num_freq; i++)
+    for (int i = 0; i < num_freq_levels; i++)
     {
-        fscanf(input_freq_file, "%f", &freq[i]);
+        fscanf(input_freq_file, "%f %f", &freq_and_voltage[i].freq, &freq_and_voltage[i].voltage);
 
-        if (freq[i] <= 0 || freq[i] > 1)
+        if (freq_and_voltage[i].freq <= 0 || freq_and_voltage[i].freq > 1 || freq_and_voltage[i].voltage < 0)
         {
             fprintf(stderr, "ERROR: Invalid input in frequency input file. Please enter valid data\n");
             exit(0);
@@ -105,13 +106,13 @@ input_freq()
  * Post-condition: An integer value of the comparision between the two frequency instances.
  */
 int
-sort_freq_comparator(const void *a, const void *b)
+sort_freq_and_voltage_comparator(const void *a, const void *b)
 {
-    float freq_a, freq_b;
-    freq_a = *(float *) a;
-    freq_b = *(float *) b;
+    Freq_and_voltage freq_a, freq_b;
+    freq_a = *(Freq_and_voltage *) a;
+    freq_b = *(Freq_and_voltage *) b;
 
-    return (freq_a > freq_b) - (freq_a < freq_b);
+    return (freq_a.freq > freq_b.freq) - (freq_a.freq < freq_b.freq);
 }
 
 
@@ -120,9 +121,9 @@ sort_freq_comparator(const void *a, const void *b)
  * Post-condition: A sorted array containing frequencies.
  */
 void
-sort_freq()
+sort_freq_and_voltage()
 {
-    qsort (freq, num_freq, sizeof(float), sort_freq_comparator);
+    qsort (freq_and_voltage, num_freq_levels, sizeof(float), sort_freq_and_voltage_comparator);
 
     return;
 }
@@ -133,14 +134,14 @@ sort_freq()
  * Post-condition:
  */
 void
-print_freq()
+print_freq_and_voltage()
 {
     fprintf(output_file, "------------------------------------------------------------\n");
-    fprintf(output_file, "Frequencies available (relative to Fmax).\n");
-    fprintf(output_file, "Number of frequencies: %d\n", num_freq);
-    for (int i = 0; i < num_freq; i++)
+    fprintf(output_file, "Frequencies and voltages available (relative to Fmax).\n");
+    fprintf(output_file, "Number of levels of frequencies and voltages: %d\n", num_freq_levels);
+    for (int i = 0; i < num_freq_levels; i++)
     {
-        fprintf(output_file, "%0.2f, ", freq[i]);
+        fprintf(output_file, "%0.2f (%0.2fV), ", freq_and_voltage[i].freq, freq_and_voltage[i].voltage);
     }
     fprintf(output_file, "\n");
 
@@ -198,13 +199,30 @@ find_hyperperiod()
 void
 find_first_in_phase_time()
 {
-    float ans = 0;
-    // for (int i = 0; i < hyperperiod; i++)
-    // {
-        
-    // }
+    first_in_phase_time = -1;
 
-    first_in_phase_time = ans;
+    long max_phase = find_max_phase();
+    
+    for (long i = max_phase; i < 2 * hyperperiod; i++)
+    {
+        bool success = true;
+        for (long j = 0; j < num_tasks;  j++)
+        {
+            if ((i - tasks[j].phase) % (tasks[j].period) != 0)
+            {
+                success = false;
+                break;
+            }
+        }
+
+        if (success)
+        {
+            first_in_phase_time = i;
+            return;
+        }
+    }
+
+    fprintf(output_file, "Could not find the first in-phase time within (0, 2 * hyperperiod).\n");
 
     return;
 }
@@ -217,6 +235,17 @@ find_first_in_phase_time()
 void
 find_end_of_execution_time()
 {
+    if (first_in_phase_time + hyperperiod <= 3 * hyperperiod)
+    {
+        fprintf(output_file, "First in-phase time < 2 * hyperperiod. Scheduling till first in-phase time + hyperperiod.\n");
+        end_of_execution_time = first_in_phase_time + hyperperiod;
+    }
+    else
+    {
+        fprintf(output_file, "First in-phase time > 2 * hyperperiod. Scheduling till 3 * hyperperiod\n");
+        end_of_execution_time = 3 * hyperperiod;
+    }
+    
     end_of_execution_time = fmin(3 * hyperperiod, first_in_phase_time + hyperperiod);
 
     return;
@@ -230,14 +259,16 @@ find_end_of_execution_time()
 void
 calculate_num_instances_of_tasks()
 {
+    fprintf(output_file, "------------------------------------------------------------\n");
     find_hyperperiod();
     find_first_in_phase_time();
-    find_end_of_execution_time();
 
-    fprintf(output_file, "------------------------------------------------------------\n");
-    fprintf(output_file, "Hyperperiod: %0.2f\n", hyperperiod);
-    fprintf(output_file, "First in-phase time: %0.2f\n", first_in_phase_time);
-    fprintf(output_file, "End of execution time: %0.2f\n", end_of_execution_time);
+    fprintf(output_file, "Hyperperiod: %ld\n", hyperperiod);
+    fprintf(output_file, "First in-phase time: %ld\n", first_in_phase_time);
+
+    // End of execution time is min(3*hyperperiod, first in-phase time + hyperperiod).
+    find_end_of_execution_time();
+    fprintf(output_file, "End of execution time: %ld\n", end_of_execution_time);
 
     for (int i = 0; i < num_tasks; i++)
     {

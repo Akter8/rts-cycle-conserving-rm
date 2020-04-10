@@ -11,10 +11,9 @@
 
 ## Tasks left
 
-* [X] Create task instances (jobs), sort them by time of arrival.
+* [ ] Write the reason why phase, period and deadlines are integers.
 * [ ] As of now, everything works till hyperperiod, make it work till min(3 * hyperperiod, first in-phase time + hyperperiod).
 * [ ] Create the scheduler module.
-* [X] Output the required output statistics in the output file.
 * [ ] Output the statistics and run the scheduler for min(3 * hyperperiod, first in-phase time + hyperperiod).
 * [ ] Make the driver module and function to have only 20 lines of code at max.
 * [ ] Convert README.md to README.txt before submission.

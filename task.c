@@ -18,6 +18,8 @@ extern float end_of_execution_time;
 extern int num_jobs;
 extern Job *jobs;
 
+extern Freq_and_voltage *freq_and_voltage;
+
 /*
  * Pre-condition: An uninitialised variable num_tasks.
  * Post-condition: Initialise num_tasks and create space in the heap to store task data.
@@ -46,7 +48,7 @@ input_tasks()
     for (int i = 0; i < num_tasks; i++) // Iterates over all tasks.
     {
         tasks[i].task_num = i;
-        fscanf(input_tasks_file, "%f %f %f %f", &tasks[i].phase, &tasks[i].period, &tasks[i].wcet, &tasks[i].deadline);
+        fscanf(input_tasks_file, "%ld %ld %f %ld", &tasks[i].phase, &tasks[i].period, &tasks[i].wcet, &tasks[i].deadline);
 
         // Checks if the data inputted is valid or not.
         if ((tasks[i].period < tasks[i].wcet) || (tasks[i].phase < 0 || tasks[i].period < 0 || tasks[i].wcet < 0 || tasks[i].deadline < 0))
@@ -78,7 +80,7 @@ print_tasks()
     for (int i = 0; i < num_tasks; i++) // Iterates over each task.
     {
         Task task = tasks[i];
-        fprintf(output_file, "Task-%d: Phase: %0.1f, Period: %0.1f, WCET: %0.1f, Deadline: %0.1f, Number of instances: %d\n", task.task_num, task.phase, task.period, task.wcet, task.deadline, task.num_instances);
+        fprintf(output_file, "Task-%d: Phase: %ld, Period: %ld, WCET: %0.1f, Deadline: %ld, Number of instances: %d\n", task.task_num, task.phase, task.period, task.wcet, task.deadline, task.num_instances);
     }
 
     return;
@@ -304,24 +306,35 @@ print_execution_freqs()
     fprintf(output_file, "\nExecution frequency statistics:\n");
     for (int i = 0; i < num_tasks; i++) // Iterates through each task in the task set.
     {
-        float max = -FLT_MAX, min = FLT_MAX, avg = 0;
+        float max_freq = -FLT_MAX, min_freq = FLT_MAX, avg_freq = 0;
+        float max_voltage = -FLT_MAX, min_voltage = FLT_MAX, avg_voltage = 0;
         Task task = tasks[i];
         float execution_freq;
+        float execution_voltage;
 
         fprintf(output_file, "Task-%d: ", task.task_num);
         for (int j = 0; j < task.num_instances; j++) // Iterates through each task instance of the given task.
         {
-            execution_freq = task.execution_freqs[j];
+            execution_freq = freq_and_voltage[task.execution_freq_indices[j]].freq;
+            execution_voltage = freq_and_voltage[task.execution_freq_indices[j]].voltage;
 
-            fprintf(output_file, "%0.1f, ", execution_freq);
+            fprintf(output_file, "%0.1f (%0.1fV), ", execution_freq, execution_voltage);
 
-            avg += execution_freq;
-            if (execution_freq > max)
-                max = execution_freq;
-            if (execution_freq < min)
-                min = execution_freq;
+            avg_freq += execution_freq;
+            avg_voltage += execution_voltage;
+
+            if (execution_freq > max_freq)
+                max_freq = execution_freq;
+            if (execution_freq < min_freq)
+                min_freq = execution_freq;
+
+            if (execution_voltage > max_voltage)
+                max_voltage = execution_voltage;
+            if (execution_voltage < min_voltage)
+                min_voltage = execution_voltage;
         }
-        fprintf(output_file, "\n\t(Max: %0.1f, Min:%0.1f, Avg: %0.1f)\n", max, min, avg / task.num_instances);
+        fprintf(output_file, "\n\t(Max Freq: %0.1f, Min Freq:%0.1f, Avg Freq: %0.1f)\n", max_freq, min_freq, avg_freq / task.num_instances);
+        fprintf(output_file, "\t(Max Voltage: %0.1fV, Min Voltage:%0.1fV, Avg Voltage: %0.1fV)\n", max_voltage, min_voltage, avg_voltage / task.num_instances);
     }
 
     return;
@@ -340,7 +353,7 @@ capture_and_print_task_statistics()
     {
         tasks[i].response_times = (float *) calloc(tasks[i].num_instances, sizeof(float));
         tasks[i].execution_times = (float *) calloc(tasks[i].num_instances, sizeof(float));
-        tasks[i].execution_freqs = (float *) calloc(tasks[i].num_instances, sizeof(float));
+        tasks[i].execution_freq_indices = (int *) calloc(tasks[i].num_instances, sizeof(float));
     }
 
     // Holding a index variable for every task.
@@ -378,6 +391,24 @@ capture_and_print_task_statistics()
  * Pre-condition:
  * Post-condition:
  */
+long
+find_max_phase()
+{
+    long max = 0;
+    for (int i = 0; i < num_tasks; i++)
+    {
+        if (max < tasks[i].phase)
+            max = tasks[i].phase;
+    }
+
+    return max;
+}
+
+
+/*
+ * Pre-condition:
+ * Post-condition:
+ */
 void
 delete_tasks()
 {
@@ -386,7 +417,7 @@ delete_tasks()
     {
         free(tasks[i].response_times);
         free(tasks[i].execution_times);
-        free(tasks[i].execution_freqs);
+        free(tasks[i].execution_freq_indices);
     }
     
     // Freeing the task data itself.

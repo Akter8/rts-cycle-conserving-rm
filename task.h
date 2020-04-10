@@ -1,13 +1,13 @@
 typedef struct
 {
     int task_num;
-    float phase;
-    float period;
-    float deadline;
+    long phase;
+    long period;
+    long deadline;
     float wcet; // Worst-case execution time.
     float *response_times;
     float *execution_times;
-    float *execution_freqs;
+    int *execution_freq_indices;
     int num_instances;
 }
 Task;
@@ -18,6 +18,7 @@ void input_tasks();
 void print_tasks();
 int sort_tasks_comparator(const void *, const void *);
 void sort_tasks();
+long find_max_phase();
 void delete_tasks();
 
 // Functions related to the statistics of execution.

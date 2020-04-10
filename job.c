@@ -133,7 +133,7 @@ print_jobs()
     {
         Job job = jobs[i];
 
-        fprintf(output_file, "Job-J%d,%d: Arrival time: %0.1f, WCET: %0.1f, Deadline: %0.1f\n", job.task_num, job.instance_num, job.arrival_time, job.wcet, job.absolute_deadline);
+        fprintf(output_file, "Job-J%d,%d: Arrival time: %ld, WCET: %0.1f, Deadline: %ld\n", job.task_num, job.instance_num, job.arrival_time, job.wcet, job.absolute_deadline);
     }
     fprintf(output_file, "\n");
 
