@@ -4,6 +4,7 @@ flags = -c -Wall
 executableName = test
 driver = driver
 output_file = output_file.txt
+statistics_file = output_statistics_file.txt
 
 
 # Make.
@@ -31,4 +32,4 @@ utility.o: utility.c
 
 # Clean.
 clean:
-	rm -f *.o $(executableName) $(output_file)
+	rm -f *.o $(executableName) $(output_file) $(statistics_file)

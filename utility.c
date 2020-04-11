@@ -8,16 +8,16 @@
 #include "task.h"
 
 extern int num_tasks;
-extern FILE *input_tasks_file;
 extern Task *tasks;
-
-extern FILE *input_freq_file;
 
 extern long hyperperiod;
 extern long first_in_phase_time;
 extern long end_of_execution_time;
 
+extern FILE *input_tasks_file;
+extern FILE *input_freq_file;
 extern FILE *output_file;
+extern FILE *statistics_file;
 
 
 /*
@@ -30,6 +30,7 @@ open_files()
     input_tasks_file = fopen(INPUT_TASKS_FILE_NAME, "r");
     input_freq_file = fopen(INPUT_FREQ_FILE_NAME, "r");
     output_file = fopen(OUTPUT_FILE_NAME, "w");
+    statistics_file = fopen(OUTPUT_STATISTICS_FILE_NAME, "w");
 
     // Checking for errors in file opening.
     file_not_null_check();
@@ -46,9 +47,11 @@ void
 close_files()
 {
     fprintf(output_file, "\n\n--------------------------- THE END ---------------------------\n");
+    fprintf(statistics_file, "\n\n--------------------------- THE END ---------------------------\n");
     fclose(input_tasks_file);
     fclose(input_freq_file);
     fclose(output_file);
+    fclose(statistics_file);
 
     return;
 }
@@ -61,7 +64,7 @@ close_files()
 void
 file_not_null_check()
 {
-    if (!input_tasks_file || !input_freq_file || !output_file)
+    if (!input_tasks_file || !input_freq_file || !output_file || !statistics_file)
     {
         fprintf(stderr, "ERROR: Could not open the required files.\n");
         exit(0);

@@ -10,6 +10,7 @@
 
 extern FILE *input_tasks_file;
 extern FILE *output_file;
+extern FILE *statistics_file;
 
 extern int num_tasks;
 extern Task *tasks;
@@ -140,19 +141,19 @@ sort_tasks()
 void
 print_response_times()
 {
-    fprintf(output_file, "\nResponse time statistics:\n");
+    fprintf(statistics_file, "\nResponse time statistics:\n");
     for (int i = 0; i < num_tasks; i++) // Iterates through each task.
     {
         float max = -FLT_MAX, min = FLT_MAX, avg = 0;
         Task task = tasks[i];
         float response_time;
 
-        fprintf(output_file, "Task-%d: ", task.task_num);
+        fprintf(statistics_file, "Task-%d: ", task.task_num);
         for (int j = 0; j < task.num_instances; j++) // Iterates through each instance of the task.
         {
             response_time = task.response_times[j];
 
-            fprintf(output_file, "%0.1f, ", response_time);
+            fprintf(statistics_file, "%0.1f, ", response_time);
 
             avg += response_time;
             if (response_time > max)
@@ -160,7 +161,7 @@ print_response_times()
             if (response_time < min)
                 min = response_time;
         }
-        fprintf(output_file, "\n\t(Max: %0.1f, Min:%0.1f, Avg: %0.1f)\n", max, min, avg / task.num_instances);
+        fprintf(statistics_file, "\n\t(Max: %0.1f, Min:%0.1f, Avg: %0.1f)\n", max, min, avg / task.num_instances);
     }
 
     return;
@@ -174,12 +175,12 @@ print_response_times()
 void
 print_response_time_jitters()
 {
-    fprintf(output_file, "\nResponse time jitter statistics.\n");
+    fprintf(statistics_file, "\nResponse time jitter statistics.\n");
     for (int i = 0; i < num_tasks; i++) // Iterates through each task in the task-set.
     {
         Task task = tasks[i];
 
-        fprintf(output_file, "Task-%d: Absolute RTJ: ", task.task_num);
+        fprintf(statistics_file, "Task-%d: Absolute RTJ: ", task.task_num);
         float max = -FLT_MAX, min = FLT_MAX;
         float response_time;
 
@@ -193,12 +194,12 @@ print_response_time_jitters()
             if (response_time < min)
                 min = response_time;
         }
-        fprintf(output_file, "%0.1f, Relative RTJ: ", max - min);
+        fprintf(statistics_file, "%0.1f, Relative RTJ: ", max - min);
 
         // If the number of instances in the hyperperiod is only 1, then the relative RTJ will be 0.
         if (task.num_instances == 1)
         {
-            fprintf(output_file, "0.0\n");
+            fprintf(statistics_file, "0.0\n");
             continue;
         }
 
@@ -219,8 +220,7 @@ print_response_time_jitters()
         if (relative_rtj > max)
             max = relative_rtj;
 
-
-        fprintf(output_file, "%0.1f\n", max);
+        fprintf(statistics_file, "%0.1f\n", max);
     }
 
     return;
@@ -236,19 +236,19 @@ print_response_time_jitters()
 void
 print_execution_times()
 {
-    fprintf(output_file, "\nExecution time statistics:\n");
+    fprintf(statistics_file, "\nExecution time statistics:\n");
     for (int i = 0; i < num_tasks; i++) // Iterates through each task in the task set.
     {
         float max = -FLT_MAX, min = FLT_MAX, avg = 0;
         Task task = tasks[i];
         float execution_time;
 
-        fprintf(output_file, "Task-%d: ", task.task_num);
+        fprintf(statistics_file, "Task-%d: ", task.task_num);
         for (int j = 0; j < task.num_instances; j++) // Iterates through every instance of the given task.
         {
             execution_time = task.execution_times[j];
 
-            fprintf(output_file, "%0.1f, ", execution_time);
+            fprintf(statistics_file, "%0.1f, ", execution_time);
 
             avg += execution_time;
             if (execution_time > max)
@@ -256,7 +256,7 @@ print_execution_times()
             if (execution_time < min)
                 min = execution_time;
         }
-        fprintf(output_file, "\n\t(Max: %0.1f, Min:%0.1f, Avg: %0.1f)\n", max, min, avg / task.num_instances);
+        fprintf(statistics_file, "\n\t(Max: %0.1f, Min:%0.1f, Avg: %0.1f)\n", max, min, avg / task.num_instances);
     }
 
     return;
@@ -272,19 +272,19 @@ print_execution_times()
 void
 print_waiting_times()
 {
-    fprintf(output_file, "\nWaiting time statistics:\n");
+    fprintf(statistics_file, "\nWaiting time statistics:\n");
     for (int i = 0; i < num_tasks; i++)
     {
         float max = -FLT_MAX, min = FLT_MAX, avg = 0;
         Task task = tasks[i];
         float waiting_time;
 
-        fprintf(output_file, "Task-%d: ", task.task_num);
+        fprintf(statistics_file, "Task-%d: ", task.task_num);
         for (int j = 0; j < task.num_instances; j++)
         {
             waiting_time = task.response_times[j] - task.execution_times[j];
 
-            fprintf(output_file, "%0.1f, ", waiting_time);
+            fprintf(statistics_file, "%0.1f, ", waiting_time);
 
             avg += waiting_time;
             if (waiting_time > max)
@@ -292,7 +292,7 @@ print_waiting_times()
             if (waiting_time < min)
                 min = waiting_time;
         }
-        fprintf(output_file, "\n\t(Max: %0.1f, Min:%0.1f, Avg: %0.1f)\n", max, min, avg / task.num_instances);
+        fprintf(statistics_file, "\n\t(Max: %0.1f, Min:%0.1f, Avg: %0.1f)\n", max, min, avg / task.num_instances);
     }
 
     return;
@@ -308,7 +308,8 @@ print_waiting_times()
 void
 print_execution_freqs()
 {
-    fprintf(output_file, "\nExecution frequency statistics:\n");
+    fprintf(statistics_file, "\nExecution frequency statistics:\n");
+    fprintf(statistics_file, "Disclaimer: Frequency shown is relative to the maximum frequency. Voltage shown is in absolute values.\n");
     for (int i = 0; i < num_tasks; i++) // Iterates through each task in the task set.
     {
         float max_freq = -FLT_MAX, min_freq = FLT_MAX, avg_freq = 0;
@@ -317,13 +318,13 @@ print_execution_freqs()
         float execution_freq;
         float execution_voltage;
 
-        fprintf(output_file, "Task-%d: ", task.task_num);
+        fprintf(statistics_file, "Task-%d: ", task.task_num);
         for (int j = 0; j < task.num_instances; j++) // Iterates through each task instance of the given task.
         {
             execution_freq = freq_and_voltage[task.execution_freq_indices[j]].freq;
             execution_voltage = freq_and_voltage[task.execution_freq_indices[j]].voltage;
 
-            fprintf(output_file, "%0.1f (%0.1fV), ", execution_freq, execution_voltage);
+            fprintf(statistics_file, "%0.2f (%0.2fV), ", execution_freq, execution_voltage);
 
             avg_freq += execution_freq;
             avg_voltage += execution_voltage;
@@ -338,8 +339,8 @@ print_execution_freqs()
             if (execution_voltage < min_voltage)
                 min_voltage = execution_voltage;
         }
-        fprintf(output_file, "\n\t(Max Freq: %0.1f, Min Freq:%0.1f, Avg Freq: %0.1f)\n", max_freq, min_freq, avg_freq / task.num_instances);
-        fprintf(output_file, "\t(Max Voltage: %0.1fV, Min Voltage:%0.1fV, Avg Voltage: %0.1fV)\n", max_voltage, min_voltage, avg_voltage / task.num_instances);
+        fprintf(statistics_file, "\n\t(Max Freq: %0.1f, Min Freq:%0.1f, Avg Freq: %0.1f)\n", max_freq, min_freq, avg_freq / task.num_instances);
+        fprintf(statistics_file, "\t(Max Voltage: %0.1fV, Min Voltage:%0.1fV, Avg Voltage: %0.1fV)\n", max_voltage, min_voltage, avg_voltage / task.num_instances);
     }
 
     return;
@@ -378,9 +379,9 @@ capture_and_print_task_statistics()
     }
     free(task_indices);
 
-    fprintf(output_file, "------------------------------------------------------------\n");
-    fprintf(output_file, "Printing Task Statistics after Execution.\n");
-    fprintf(output_file, "Number of tasks: %d\n", num_tasks);
+    fprintf(statistics_file, "------------------------------------------------------------\n");
+    fprintf(statistics_file, "Printing Task Statistics after Execution.\n");
+    fprintf(statistics_file, "Number of tasks: %d\n", num_tasks);
 
     // Printing the various statistics of execution.
     print_response_times();

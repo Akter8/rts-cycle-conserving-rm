@@ -11,9 +11,9 @@
 
 ## Tasks left
 
-* [X] Added basic functions in scheduler.c
-* [ ] Complete scheduler.c
-* [X] Define the relevant data-structures for the scheduler.
+* [ ] Test the scheduler for bugs.
+* [ ] Convert as many void functions to ones with non-void return values.
+* [ ] Reduce the number of global variables as much as possible.
 * [ ] Write the reason why phase, period and deadlines are integers.
 * [ ] As of now, everything works till hyperperiod, make it work till min(3 * hyperperiod, first in-phase time + hyperperiod).
 * [ ] Make the driver module and function to have only 20 lines of code at max.
@@ -52,6 +52,7 @@
 ### Output files
 
 * output_file.txt - Contains the output of the program.
+* output_statistics_file.txt - Contains the output statistics of the program.
 
 ## How to compile and run
 

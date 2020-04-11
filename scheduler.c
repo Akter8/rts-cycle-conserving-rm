@@ -11,6 +11,7 @@
 #include "freq_and_voltage.h"
 
 extern FILE *output_file;
+extern FILE *statistics_file;
 
 extern int num_tasks;
 extern Task *tasks;
@@ -40,6 +41,8 @@ float next_decision_point;
 
 int num_preemptions;
 int num_cache_impact_points;
+int prev_task;
+int current_task;
 
 extern float total_power;
 
@@ -54,8 +57,10 @@ start_scheduler()
     fprintf(output_file, "------------------------------------------------------------\n");
     fprintf(output_file, "Scheduler starting.\n");
 
+    // Setting the seed before random numbers are generated.
     srand(time(NULL));
 
+    // Initialising variables.
     num_job_in_ready_queue = 0;
     ready_queue = (Job *) malloc(sizeof(Job) * num_job_in_ready_queue);
     current_job_overall_job_index = -1;
@@ -64,6 +69,8 @@ start_scheduler()
 
     num_preemptions = 0;
     num_cache_impact_points = 0;
+    prev_task = -1;
+    current_task = -1;
 
     current_freq_and_voltage = freq_and_voltage[static_freq_and_voltage_index];
     current_freq_and_voltage_index = static_freq_and_voltage_index;
@@ -72,20 +79,22 @@ start_scheduler()
 
     total_power = 0;
 
-    scheduler();
+    // Starting the scheduler.
+    scheduler(); // Since the scheduler is recursive, one call to the scheduler is enough.
 
-    print_finished_jobs();
+    // Once the scheduler has finished scheduling.
+    free(ready_queue);
 
-    printf("done scheduling.\n");
-    fflush(stdout);
+    fprintf(output_file, "\n\nScheduler has finished.\n");
+    fprintf(output_file, "\n\nDisclaimer: Please open the statistics file to view the statistics of the execution of the task set.\n");
 
-    fprintf(output_file, "------------------------------------------------------------\n");
-    fprintf(output_file, "Total dynamic-power consumer: %0.2f\n", total_power);
-    fprintf(output_file, "Total number of preemptions: %d\n", num_preemptions);
-    fprintf(output_file, "Total number of cache-impact points: %d\n", num_cache_impact_points);
-    fprintf(output_file, "Total number of frequency calculations: %d\n", num_freq_calculations);
-    fprintf(output_file, "Total number of frequency changes: %d\n", num_freq_changes);
-
+    // Printing statistics.
+    fprintf(statistics_file, "------------------------------------------------------------\n");
+    fprintf(statistics_file, "Total dynamic-power consumer: %0.2f\n", total_power);
+    fprintf(statistics_file, "Total number of preemptions: %d\n", num_preemptions);
+    fprintf(statistics_file, "Total number of cache-impact points: %d\n", num_cache_impact_points);
+    fprintf(statistics_file, "Total number of frequency calculations: %d\n", num_freq_calculations);
+    fprintf(statistics_file, "Total number of frequency changes: %d\n", num_freq_changes);
 
     return;
 }
@@ -104,12 +113,14 @@ sort_ready_queue_comparator(const void *a, const void *b)
     job_a = *((Job *) a);
     job_b = *((Job *) b);
 
+    // Checking if the periods are equal.
     if (tasks[job_a.sorted_task_num].period != tasks[job_b.sorted_task_num].period)
     {
         return tasks[job_a.sorted_task_num].period - tasks[job_b.sorted_task_num].period;
     }
     else
     {
+        // Sorting on absolute deadline.
         return job_a.absolute_deadline - job_b.absolute_deadline;
     }
 }
@@ -127,6 +138,24 @@ sort_ready_queue()
     return;
 }
 
+/*
+ * Pre-condition: Sorted ready queue.
+ * Post-condition: Prints the ready queue onto the output file.
+ */
+void
+print_ready_queue()
+{
+    fprintf(output_file, "\n\nPrinting ready queue.\n");
+    fprintf(output_file, "Number of jobs in the ready queue: %d\n", num_job_in_ready_queue);
+    for (int i = 0; i < num_job_in_ready_queue; i++) // Iterating through every job in the ready queue.
+    {
+        Job job = ready_queue[i];
+        fprintf(output_file, "Job J%d,%d: Arrival time: %ld, WCET: %0.1f, AET: %0.1f, execution left: %0.1f, time executed: %0.1f, Deadline: %ld\n", job.task_num, job.instance_num, job.arrival_time, job.wcet, job.aet, job.time_left, job.time_executed, job.absolute_deadline);
+    }
+
+    return;
+}
+
 
 /*
  * Pre-condition: Ready queue containing jobs.
@@ -137,7 +166,7 @@ allocate_time()
 {
     find_next_deadline();
     float time_left = next_deadline - current_time;
-    fprintf(output_file, "next deadline: %ld, current time: %0.2f\n", next_deadline, current_time);
+    // fprintf(output_file, "next deadline: %ld, current time: %0.2f\n", next_deadline, current_time);
 
     // Jobs are already sorted based on period/priority in the ready queue.
     // Allocating time to each task based on priority.
@@ -147,14 +176,14 @@ allocate_time()
         {
             ready_queue[i].time_next_execution =  ready_queue[i].aet - ready_queue[i].time_executed;
             time_left = time_left - ready_queue[i].aet - ready_queue[i].time_executed;
-            fprintf(output_file, "%0.2f\n", ready_queue[i].time_next_execution);
+            // fprintf(output_file, "%0.2f\n", ready_queue[i].time_next_execution);
         }
         else // If this is the last non-zero allocation.
         {
             // fprintf(output_file, "time left = %0.2f\n", time_left);
             ready_queue[i].time_next_execution = time_left;
             time_left = 0;
-            fprintf(output_file, "%0.2f\n", ready_queue[i].time_next_execution);
+            // fprintf(output_file, "%0.2f\n", ready_queue[i].time_next_execution);
         }
     }
     
@@ -163,36 +192,33 @@ allocate_time()
 
 
 /*
- * Pre-condition: Sorted frequency and voltage array.
+ * Pre-condition: Sorted frequency and voltage array, also requires time allocated for every task  in the ready queue.
  * Post-condition: The frequency and voltage at which the next job runs. Updates current time with the given overheads as well.
  */
 void
 select_frequency()
 {
+    // Finding the time left till the next deadline.
     find_next_deadline();
     float time_left = next_deadline - current_time;
     float dynamic_task_utilisation = 0;
 
     float prev_freq = current_freq_and_voltage.freq;
-
-    if (num_job_in_ready_queue == 0)
-    {
-        fprintf(output_file, "zero jobs\n");      
-    }
     
-    // Finding the task utilisation at the current time.
+    // Finding the task utilisation at the current time till the next deadline.
     for (int i = 0; i < num_job_in_ready_queue; i++)
     {
         dynamic_task_utilisation += ready_queue[i].time_next_execution;
     }
     dynamic_task_utilisation = dynamic_task_utilisation / time_left;
     
+    // Based on the current task utilisation, we calculate the best fit frequency.
 
-    if (dynamic_task_utilisation >= freq_and_voltage[num_freq_levels - 1].freq)
+    if (dynamic_task_utilisation >= freq_and_voltage[num_freq_levels - 1].freq) // The case when the task utilisation is >= Fmax.
     {
         current_freq_and_voltage_index = num_freq_levels - 1;
     }
-    else
+    else // Else if the task utilisation is < 1.
     {
         // Finding the highest frequency that satisfies the task-utilisation.
         for (int i = num_freq_levels - 1; i >= 0; i--)
@@ -209,43 +235,29 @@ select_frequency()
     }
 
     fprintf(output_file, "Frequency calculation overhead being added. %0.2f + %0.2f = %0.2f\n", current_time, FREQUENCY_CALCULATION_OVERHEAD, current_time + FREQUENCY_CALCULATION_OVERHEAD);
+
+    // Adding the freq calculation overhead.
     current_time += FREQUENCY_CALCULATION_OVERHEAD;
     num_freq_calculations++;
 
-    // If frequency and voltage are changing in next execution.
+    // Not every frequency calculation might lead to a frequency change.
+
+    // If frequency and voltage are changing in next execution as compared to the previous execution.
     if (prev_freq != freq_and_voltage[current_freq_and_voltage_index].freq)
     {
         current_freq_and_voltage = freq_and_voltage[current_freq_and_voltage_index];
         fprintf(output_file, "Frequency change overhead being added. %0.2f + %0.2f = %0.2f\n", current_time, FREQUENCY_CHANGE_OVERHEAD, current_time + FREQUENCY_CHANGE_OVERHEAD);
+
+        // Adding the freq change overhead.
         current_time += FREQUENCY_CHANGE_OVERHEAD;
         num_freq_changes++;
+
         fprintf(output_file, "Frequency change. New task utilisation at: %0.2f, frequency: %0.2f\n", dynamic_task_utilisation, current_freq_and_voltage.freq);
-        fprintf(output_file, "Next deadline: %ld\n", next_deadline);
     }
-    else // If the frequency has not changed.
+    else // If the frequency has not changed as compared to the previous execution.
     {
         fprintf(output_file, "No frequency change. New task utilisation at: %0.2f, frequency: %0.2f\n", dynamic_task_utilisation, current_freq_and_voltage.freq);
         fprintf(output_file, "Next deadline: %ld\n", next_deadline);
-    }
-    
-
-    return;
-}
-
-
-/*
- * Pre-condition: Sorted ready queue.
- * Post-condition: Prints the ready queue onto the output file.
- */
-void
-print_ready_queue()
-{
-    fprintf(output_file, "\n\nPrinting ready queue.\n");
-    fprintf(output_file, "Number of jobs in the ready queue: %d\n", num_job_in_ready_queue);
-    for (int i = 0; i < num_job_in_ready_queue; i++) // Iterating through every job in the ready queue.
-    {
-        Job job = ready_queue[i];
-        fprintf(output_file, "Job J%d,%d: Arrival time: %ld, WCET: %0.1f, AET: %0.1f, execution left: %0.1f, time executed: %0.1f, Deadline: %ld\n", job.task_num, job.instance_num, job.arrival_time, job.wcet, job.aet, job.time_left, job.time_executed, job.absolute_deadline);
     }
 
     return;
@@ -269,9 +281,12 @@ find_next_deadline()
             min_deadline = ready_queue[i].absolute_deadline;
         }
     }
-    if (min_deadline > next_deadline && current_time < next_deadline)
+
+    if (min_deadline > next_deadline && current_time < next_deadline) // If the next_deadline found in the previous call is still the next_deadline. (Might occur when this job has already finished and moved out of the ready queue).
+    {
         min_deadline = next_deadline;
-    // printf("Current time: %0.1f, next deadline: %ld\n", current_time, min_deadline);
+    }
+
     next_deadline = min_deadline;
 
     return;
@@ -280,7 +295,7 @@ find_next_deadline()
 
 /*
  * Pre-condition: Job queue sorted on arrival time and index of currently running job in the ready queue.
- * Post-condition: Finds the next decision point between finished execution of current job vs arrival of the next job.
+ * Post-condition: Finds the next decision point between finished execution of current job vs arrival of the next job. Returns a value to specify whether the previous job got to finish executing (return value = 1) or if the previous job was preempted by a new job (return value = 2).
  */
 int
 find_next_decision_point()
@@ -288,7 +303,7 @@ find_next_decision_point()
     // Checking if this is the last job to execute.
     if ((current_job_overall_job_index != num_jobs - 1) && (current_job_overall_job_index != -1)) // If not last job and not first job.
     {
-        if (ready_queue == 0)
+        if (num_job_in_ready_queue == 0) // If the ready queue is empty.
         {
             next_decision_point = jobs[current_job_overall_job_index + 1].arrival_time;
             return 2;
@@ -308,14 +323,13 @@ find_next_decision_point()
     }
     else // If last job.
     {
-        print_ready_queue();
-        if (num_job_in_ready_queue == 0)
+        if (num_job_in_ready_queue == 0) // If the ready queue is empty.
         {
             next_decision_point = end_of_execution_time;
             return 1;
         }
-        fprintf(output_file, "current job index = %d, num ready queue: %d\n", current_job_overall_job_index, num_job_in_ready_queue);
-        fflush(stdout);
+        // fprintf(output_file, "current job index = %d, num ready queue: %d\n", current_job_overall_job_index, num_job_in_ready_queue);
+
         next_decision_point += ready_queue[current_job_ready_queue_index].time_next_execution;
         return 1;
     }
@@ -324,12 +338,12 @@ find_next_decision_point()
 
 /*
  * Pre-condition: A new job that just entered the ready queue.
- * Post-condition: Finding the actual execution time for the new job.
+ * Post-condition: Finds the actual execution time for the new job and updates its metadata.
  */
 void
 find_execution_time_periodic_job()
 {
-   
+    // Actual execution time = (50 to 100)% of the worst-case execution time.
     float aet = rand() % (100 - MIN_PERCENT_EXECUTION);
     aet = (aet + MIN_PERCENT_EXECUTION) / 100;
     aet = aet * ready_queue[num_job_in_ready_queue - 1].wcet;
@@ -354,6 +368,7 @@ add_job()
 
     fprintf(output_file, "Job J%d,%d: Added to the ready queue at t=%0.2f.\n", job.task_num, job.instance_num, current_time);
 
+    // Changing the meta data of the job and the ready queue.
     job.admitted = true;
     num_job_in_ready_queue++;
     ready_queue = (Job *) realloc(ready_queue, sizeof(Job) * num_job_in_ready_queue);
@@ -371,7 +386,7 @@ void
 complete_job()
 {
 
-    if (current_job_overall_job_index == num_jobs - 1 && num_job_in_ready_queue == 0)
+    if (current_job_overall_job_index == num_jobs - 1 && num_job_in_ready_queue == 0) // If the job queues are empty.
         return;
 
     fprintf(output_file, "Job J%d,%d: Finished execution at t=%0.2f.\n", ready_queue[current_job_ready_queue_index].task_num, ready_queue[current_job_ready_queue_index].instance_num, current_time);
@@ -391,12 +406,7 @@ complete_job()
         }
     }
 
-    // if (num_job_in_ready_queue != 0)
-    // {
-    //     int x = 0;
-    //     printf("Job J%d,%d\n", ready_queue[x].task_num, ready_queue[x].instance_num);
-    // }
-
+    // Shifting the jobs in the ready queue by 1 position as the job that finished has to be overwritten.
     for (int i = current_job_ready_queue_index + 1; i < num_job_in_ready_queue; i++)
     {
         ready_queue[i-1] = ready_queue[i];
@@ -410,40 +420,24 @@ complete_job()
 
 
 /*
- * Pre-condition:
- * Post-condition:
- */
-void
-print_finished_jobs()
-{
-    fprintf(output_file, "\n\nPrinting finished jobs.\n");
-    int i;
-    for (i = 0; i < current_job_overall_job_index; i++)
-    {
-        if (jobs[i].alive == true)
-            break;
-        fprintf(output_file, "J%d,%d ", jobs[i].task_num, jobs[i].instance_num);
-    }
-    fprintf(output_file, "\nNumber of finished jobs: %d\n", i);
-    
-
-    return;
-}
-
-
-/*
- * Pre-condition:
- * Post-condition:
+ * Pre-condition: The next decision point and the ready queue.
+ * Post-condition: Runs and updates the meta data of the highest priority job in the ready queue.
+ * 
+ * This function does NOT run the IDLE job. (That is taken care of by the scheduler() function).
  */
 void
 run_job()
 {
-    if (current_job_overall_job_index == num_jobs - 1 && num_job_in_ready_queue == 0)
+    if (current_job_overall_job_index == num_jobs - 1 && num_job_in_ready_queue == 0) // If all the jobs are completed.
         return;
 
+    // Finding the next execution time.
     int return_value = find_next_decision_point(); 
     float execution_time = next_decision_point - current_time;
+
+    current_task = ready_queue[current_job_ready_queue_index].task_num;
     
+    // Updating meta-data.
     ready_queue[current_job_ready_queue_index].time_executed += execution_time;
     ready_queue[current_job_ready_queue_index].time_next_execution -= execution_time;
     ready_queue[current_job_ready_queue_index].time_left -= execution_time;
@@ -452,22 +446,50 @@ run_job()
 
     current_time = next_decision_point;
 
-    if (return_value == 1)
+    // Adding the dynamic power consumed by this execution to the total.
+    add_power();
+
+    if (return_value == 1) // If the job was completed.
     {
         ready_queue[current_job_ready_queue_index].time_left = 0;
         // printf("running\n");
         complete_job();
         // printf("terminated.\n");
     }
-    
+    else // If the job was interrupted by the arrival of a new job.
+    {
+        fprintf(output_file, "Job J%d,%d being preempted at t=%0.2f.\n", ready_queue[current_job_ready_queue_index].task_num, ready_queue[current_job_ready_queue_index].instance_num, current_time);
+        //------------------------------------------------------------------------------------------------------
+        // Update required. (Not all arrivals result in preemptions).
+        num_preemptions++;
+        if (prev_task != current_task)
+            num_cache_impact_points++;
+    }
 
-    // fprintf(output_file, "time left: %0.9f\n",  ready_queue[current_job_ready_queue_index].aet - ready_queue[current_job_ready_queue_index].time_executed);
-    // if (ready_queue[current_job_ready_queue_index].aet - ready_queue[current_job_ready_queue_index].time_executed <= 0.001)
-    // {
-    //     fprintf(output_file, "zero\n");
-    //     
-    // }
-    
+    prev_task = current_task;
+
+    return;
+}
+
+
+/*
+ * Pre-condition: The array containing all the jobs.
+ * Post-condition: Prints the list of jobs (task num and instance number) of the ones that have completed.
+ */
+void
+print_finished_jobs()
+{
+    fprintf(output_file, "\n\nPrinting finished jobs.\n");
+    int count = 0;
+    for (int i = 0; i < num_jobs; i++) // Iterating through all the jobs.
+    {
+        if (jobs[i].alive == false) // The job is not alive if it has completed.
+        {
+            fprintf(output_file, "J%d,%d ", jobs[i].task_num, jobs[i].instance_num);
+            count++;
+        }
+    }
+    fprintf(output_file, "\nNumber of finished jobs: %d\n", count);
 
     return;
 }
@@ -482,32 +504,41 @@ add_power()
 {
     Job job = ready_queue[current_job_ready_queue_index];
 
+    // Finding the freq and voltage at which the current job executed.
     float execution_freq = freq_and_voltage[job.execution_freq_index].freq;
     float execution_voltage = freq_and_voltage[job.execution_freq_index].voltage;
 
     // Power += v * v * f * time.
-    total_power += execution_voltage * execution_voltage * execution_freq * job.time_next_execution;
+    float power = execution_voltage * execution_voltage * execution_freq * job.time_next_execution;
+
+    total_power += power;
+
+    fprintf(output_file, "Power consumed by J%d,%d: %0.3f\n", job.task_num, job.instance_num, power);
 
     return;
 }
 
 
 /*
- * Pre-condition:
- * Post-condition:
+ * Pre-condition: Ready queue, list of jobs yet to arrive, next deadline and next decision points.
+ * Post-condition: Adds, runs and completes jobs in the right order of priority of RM. Also adds to the total dynamic power consumed.
  */
 void
 scheduler()
 {
-    if (current_job_ready_queue_index == 0 && current_job_overall_job_index == num_jobs - 1)
+    if (current_time >= end_of_execution_time) // If the maximum time of execution has been reached.
+    {
+        current_time = end_of_execution_time;
         return;
+    }
 
-    // Removing a job from the ready queue.
-    // At a time, only one job can finish, hence we do the completion check only once.
-    // if (ready_queue[current_job_ready_queue_index].time_left == 0)
-    // {
-    //     complete_job();
-    // }
+    if (current_job_ready_queue_index == 0 && current_job_overall_job_index == num_jobs - 1) // If all the jobs are completed.
+    {
+        find_next_decision_point();
+        find_next_deadline();
+        current_time = next_decision_point;
+        return;
+    }
     
     int jobs_added = 0; // To find the number of jobs added this call of the scheduler.
 
@@ -520,7 +551,7 @@ scheduler()
             break;
         }
 
-        // If the job has arrived.
+        // If a job has arrived.
         if (jobs[current_job_overall_job_index + 1].admitted == false && current_time >= jobs[current_job_overall_job_index + 1].arrival_time) // Since jobs queue is sorted based on arrival time.
         {
             add_job();
@@ -544,35 +575,27 @@ scheduler()
     // Checking if the ready queue is empty. Have to run idle job if it is.
     if (num_job_in_ready_queue == 0)
     {
+        // Finding the min freq and voltage possible to run the idle job.
         current_freq_and_voltage_index = 0;
         current_freq_and_voltage = freq_and_voltage[0];
 
         find_next_decision_point();
+
         fprintf(output_file, "Idle job running at lowest frequency and voltage from t=%0.2f to %0.2f.\n", current_time, next_decision_point);
-        fflush(output_file);
 
-        // add_power();
-
-        fprintf(output_file, "Decision making overhead being added. %0.2f + %0.2f = %0.2f\n", current_time, DECISION_MAKING_OVERHEAD, current_time + DECISION_MAKING_OVERHEAD);
+        // fprintf(output_file, "Decision making overhead being added. %0.2f + %0.2f = %0.2f\n", current_time, DECISION_MAKING_OVERHEAD, current_time + DECISION_MAKING_OVERHEAD);
         fflush(output_file);
 
         current_time += DECISION_MAKING_OVERHEAD;
         current_time = next_decision_point;
         
-        if (num_job_in_ready_queue == 0 && current_job_overall_job_index >= num_jobs - 1)
+        if (num_job_in_ready_queue == 0 && current_job_overall_job_index >= num_jobs - 1) // If the final job has completed.
             return;
         else
             scheduler();
     }
-    // else if (jobs_added != 0) // Allocate time should only be called when at least one job has been added to the job queue.
-    // {
-    //     sort_ready_queue();
-    //     allocate_time();
-    //     fprintf(output_file, "New time allocated.\n");
-    // }
-    // printf("Jobs added: %d\n", jobs_added);
-    
 
+    // Sorting ready queue before allocating time and finding dynamic freq.
     sort_ready_queue();
     print_ready_queue();
 
@@ -580,20 +603,16 @@ scheduler()
     select_frequency();
 
     fprintf(output_file, "Decision making overhead being added. %0.2f + %0.2f = %0.2f\n", current_time, DECISION_MAKING_OVERHEAD, current_time + DECISION_MAKING_OVERHEAD);
+    // Adding the decisioin making time.
     current_time += DECISION_MAKING_OVERHEAD;
 
+    // All the jobs that run from the ready queue will be from index 0 of the ready queue as the ready queue is sorted based on priority (which is the period in case of RM).
     current_job_ready_queue_index = 0;
     run_job();
 
     print_finished_jobs();
-
-    // static int x = 0;
-    // printf("%d\n", x);
-    // printf("Job J%d,%d\n", ready_queue[x].task_num, ready_queue[x].instance_num);
-    // x++;
     
-    scheduler();
+    scheduler(); // Recursively calling the scheduler to run the next job.
 
     return;
 }
-

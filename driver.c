@@ -10,6 +10,7 @@
 FILE *input_tasks_file;
 FILE *input_freq_file;
 FILE *output_file;
+FILE *statistics_file;
 
 int num_tasks;
 Task *tasks;
