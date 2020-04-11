@@ -25,6 +25,7 @@ int static_freq_and_voltage_index;
 
 int num_freq_calculations;
 int num_freq_changes;
+float total_power;
 
 int num_jobs;
 Job *jobs;

@@ -10,9 +10,10 @@ typedef struct
     float aet; // Actual execution time.
     float time_executed;
     float time_next_execution;
+    float time_left;
     long absolute_deadline;
     float finish_time;
-    float execution_freq;
+    int execution_freq_index;
     bool alive;
     bool admitted;
 }

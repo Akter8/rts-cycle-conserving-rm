@@ -49,11 +49,11 @@ input_freq_and_voltage()
 int
 sort_freq_and_voltage_comparator(const void *a, const void *b)
 {
-    Freq_and_voltage freq_a, freq_b;
-    freq_a = *(Freq_and_voltage *) a;
-    freq_b = *(Freq_and_voltage *) b;
+    float freq_a, freq_b;
+    freq_a = (*(Freq_and_voltage *) a).freq;
+    freq_b = (*(Freq_and_voltage *) b).freq;
 
-    return (freq_a.freq > freq_b.freq) - (freq_a.freq < freq_b.freq);
+    return (freq_a >= freq_b) ? 1 : -1;
 }
 
 
@@ -64,7 +64,7 @@ sort_freq_and_voltage_comparator(const void *a, const void *b)
 void
 sort_freq_and_voltage()
 {
-    qsort (freq_and_voltage, num_freq_levels, sizeof(float), sort_freq_and_voltage_comparator);
+    qsort (freq_and_voltage, num_freq_levels, sizeof(Freq_and_voltage), sort_freq_and_voltage_comparator);
 
     return;
 }
@@ -127,9 +127,9 @@ find_static_freq_and_voltage()
 
     // Finding the highest possible frequency that fits the task-set.
     // Iterating through every frequency from lowest to highest.
-    for (int i = 0; i < num_freq_levels; i++)
+    for (int i = num_freq_levels - 1; i >= 0; i--)
     {
-        if (task_utilisation >= freq_and_voltage[i].freq)
+        if (task_utilisation <= freq_and_voltage[i].freq)
         {
             static_freq_and_voltage_index = i;
         }

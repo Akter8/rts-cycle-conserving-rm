@@ -1,7 +1,7 @@
 // Related to schedulers in general.
 void start_scheduler();
 void find_execution_time_periodic_job();
-void find_next_decision_point();
+int find_next_decision_point();
 void scheduler();
 void run_job();
 void print_ready_queue();
@@ -17,3 +17,4 @@ void preempt_job();
 // Related to DVFS algorithms.
 void select_frequency();
 void find_next_deadline();
+void add_power();
