@@ -11,10 +11,9 @@
 
 ## Tasks left
 
-* [X] Added a new separate module for frequency and voltage.
-* [X] Find static voltage and frequency.
-* [ ] Define the relevant data-structures for the scheduler.
-* [ ] Schedule the task-set dynamically for CC-RM.
+* [X] Added basic functions in scheduler.c
+* [ ] Complete scheduler.c
+* [X] Define the relevant data-structures for the scheduler.
 * [ ] Write the reason why phase, period and deadlines are integers.
 * [ ] As of now, everything works till hyperperiod, make it work till min(3 * hyperperiod, first in-phase time + hyperperiod).
 * [ ] Make the driver module and function to have only 20 lines of code at max.

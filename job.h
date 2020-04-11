@@ -8,10 +8,13 @@ typedef struct
     long arrival_time;
     float wcet; // Worst-case execution time.
     float aet; // Actual execution time.
+    float time_executed;
+    float time_next_execution;
     long absolute_deadline;
     float finish_time;
     float execution_freq;
     bool alive;
+    bool admitted;
 }
 Job;
 

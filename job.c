@@ -56,6 +56,8 @@ create_jobs()
             jobs[index].wcet = task.wcet;
 
             jobs[index].alive = true;
+            jobs[index].admitted = false;
+            jobs[index].time_executed = 0;
 
             jobs[index].aet = -1;
             jobs[index].finish_time = -1;

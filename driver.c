@@ -23,6 +23,9 @@ Freq_and_voltage *freq_and_voltage;
 Freq_and_voltage static_freq_and_voltage;
 int static_freq_and_voltage_index;
 
+int num_freq_calculations;
+int num_freq_changes;
+
 int num_jobs;
 Job *jobs;
 
