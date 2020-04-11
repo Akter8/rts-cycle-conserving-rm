@@ -8,6 +8,7 @@ void print_ready_queue();
 void allocate_time();
 int sort_ready_queue_comparator(const void *, const void *);
 void sort_ready_queue();
+void print_finished_jobs();
 
 // Related to the jobs being executed.
 void add_job();

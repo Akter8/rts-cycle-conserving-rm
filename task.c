@@ -272,7 +272,7 @@ print_execution_times()
 void
 print_waiting_times()
 {
-    fprintf(output_file, "\nExecution time statistics:\n");
+    fprintf(output_file, "\nWaiting time statistics:\n");
     for (int i = 0; i < num_tasks; i++)
     {
         float max = -FLT_MAX, min = FLT_MAX, avg = 0;
@@ -370,8 +370,9 @@ capture_and_print_task_statistics()
     {
         task_index = jobs[i].sorted_task_num;
 
-        tasks[task_index].response_times[task_indices[task_index]] = jobs[i].finish_time;
+        tasks[task_index].response_times[task_indices[task_index]] = jobs[i].finish_time - jobs[i].arrival_time;
         tasks[task_index].execution_times[task_indices[task_index]] = jobs[i].aet;
+        tasks[task_index].execution_freq_indices[task_indices[task_index]] = jobs[i].execution_freq_index;
 
         task_indices[task_index]++;
     }
