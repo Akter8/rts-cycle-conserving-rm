@@ -17,4 +17,4 @@ void allocate_time(); // Allocates time (available till the next deadline) to jo
 void select_frequency(); // Selects the best fit freq and voltage to save as much energy as possible.
 void find_next_deadline(); // At any given time, finds the next deadline.
 int find_next_decision_point(); // At any given time, finds the next decision point.
-void add_power(); // Adds the dynamic power consumed by the current job to the total.
+void add_dynamic_energy(); // Adds the dynamic power consumed by the current job to the total.

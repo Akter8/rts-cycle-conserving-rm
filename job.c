@@ -15,6 +15,28 @@ extern Job *jobs;
 
 
 /*
+ * Pre-condition: Uninitialised variables to hold the data corresponding to the jobs to be scheduled.
+ * Post-condition: Creates, initialises, sorts and prints the jobs data.
+ * 
+ * This function acts as an init_jobs() function and calls all the other initialising functions.
+ */
+void
+create_sort_print_jobs()
+{
+    // Create task instances.
+    create_jobs();
+
+    // Sort jobs.
+    sort_jobs();
+
+    // Print the job information.
+    print_jobs();
+
+    return;
+}
+
+
+/*
  * Pre-condition: The valid task-set containing the number of instances for every task.
  * Post-condition: The total number of task instances that have to execute.
  */
@@ -23,9 +45,9 @@ calculate_num_jobs()
 {
     num_jobs = 0;
 
-    for (int i = 0; i < num_tasks; i++)
+    for (int i = 0; i < num_tasks; i++) // Iterating through each task in the task-set.
     {
-        num_jobs += tasks[i].num_instances;
+        num_jobs += tasks[i].num_instances; // Adding each task's number of instances.
     }
 
     return;
@@ -39,10 +61,12 @@ calculate_num_jobs()
 void
 create_jobs()
 {
+    // Allocating space in the heap for the jobs.
     calculate_num_jobs();
     jobs = (Job *) malloc(sizeof(Job) * num_jobs);
 
     int index = 0;
+    // Initialising the task set.
     for (int i = 0; i < num_tasks; i++) // Iterating through each task of the task-set.
     {
         Task task = tasks[i];
@@ -51,7 +75,7 @@ create_jobs()
             jobs[index].task_num = task.task_num;
             jobs[index].sorted_task_num = i;
             jobs[index].instance_num = j;
-            jobs[index].arrival_time = task.phase + j * task.period;
+            jobs[index].arrival_time = task.phase + (j * task.period);
             jobs[index].absolute_deadline = jobs[index].arrival_time + task.deadline;
             jobs[index].wcet = task.wcet;
 
@@ -59,12 +83,14 @@ create_jobs()
             jobs[index].admitted = false;
             jobs[index].time_executed = 0;
 
+            jobs[index].execution_freq_index = -1;
+            jobs[index].dynamic_energy_consumed = 0;
+
             jobs[index].aet = -1;
             jobs[index].finish_time = -1;
 
             index++;
         }
-        
     }
     
     return;
@@ -84,11 +110,11 @@ sort_jobs_comparator(const void *a, const void *b)
     job_a = *((Job *) a);
     job_b = *((Job *) b);
 
-    if (job_a.arrival_time != job_b.arrival_time)
+    if (job_a.arrival_time != job_b.arrival_time) // If arrival time is not equal, then we compare.
     {
         return job_a.arrival_time - job_b.arrival_time;
     }
-    else
+    else // Compare based on the period of its corresponding task.
     {
         Task task_a, task_b;
         task_a = tasks[job_a.sorted_task_num];
@@ -98,7 +124,7 @@ sort_jobs_comparator(const void *a, const void *b)
         {
             return task_a.period - task_b.period;
         }
-        else
+        else // Else compare based on wcet.
         {
             return task_a.wcet - task_b.wcet;
         }
@@ -131,7 +157,7 @@ print_jobs()
     fprintf(output_file, "------------------------------------------------------------\n");
     fprintf(output_file, "Job Information.\n");
     fprintf(output_file, "Number of jobs: %d\n", num_jobs);
-    for (int i = 0; i < num_jobs; i++)
+    for (int i = 0; i < num_jobs; i++) // Iterating through every job.
     {
         Job job = jobs[i];
 

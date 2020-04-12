@@ -11,6 +11,7 @@
 
 ## Tasks left
 
+* [ ] Fix the bug related to 0 energy consumed for every job that runs.
 * [ ] Test the scheduler for bugs.
 * [ ] Convert as many void functions to ones with non-void return values.
 * [ ] Reduce the number of global variables as much as possible.
@@ -49,7 +50,7 @@
 * input_tasks_file.txt - Contains the task inputs.
 * input_freq_file.txt - Contains the frequency inputs.
 
-### Output files
+### Output files (Only after running the program)
 
 * output_file.txt - Contains the output of the program.
 * output_statistics_file.txt - Contains the output statistics of the program.
@@ -67,8 +68,9 @@
 * First the program inputs the required data-- task-set information and freq (and voltage) information (at the same time it checks if the data is valid).
 * Then the program sorts all the tasks and freq as required.
 * Then the program creates instances of tasks till the required time.
+* Then the program finds the static frequency and voltage for the task-set.
 * Then the program creates various data-structures related to the scheduler.
-* Using the data-structures previously defined, the program simulates the dynamic scheduling of the task-set using the given frequency (and voltage) input.
-* Then the program outputs the various statistics of execution of tasks.
+* Using the data-structures previously defined, the program simulates the dynamic scheduling of the task-set using the given frequency (and voltage) input, also while dynamically changing the frequency and voltage at decision points of the schedule.
+* Then the program outputs the schedule and the various statistics of execution of scheduler.
 
 ## Assumptions

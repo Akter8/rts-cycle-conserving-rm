@@ -10,4 +10,4 @@
 #define FREQUENCY_CALCULATION_OVERHEAD 0.05
 #define FREQUENCY_CHANGE_OVERHEAD 0.1
 
-#define MIN_PERCENT_EXECUTION 50
+#define MIN_PERCENT_EXECUTION 50 // Minimum percent of execution relative to WCET of a job.

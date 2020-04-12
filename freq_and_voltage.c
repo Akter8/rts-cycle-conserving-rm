@@ -15,6 +15,29 @@ extern int static_freq_and_voltage_index;
 
 
 /*
+ * Pre-condition: The variables to store the input frequency and voltage data.
+ * Post-condition: Initialises, sorts and prints the frequency and voltage data. Also, finds the static frequency and voltage for the task-set.
+ */
+void
+input_sort_print_freq_and_voltage()
+{
+    // Input the frequencies.
+    input_freq_and_voltage();
+
+    // Sort the frequencies.
+    sort_freq_and_voltage();
+
+    // Print the frequencies.
+    print_freq_and_voltage();
+
+    // Find the static frequency and voltage.
+    find_static_freq_and_voltage();
+
+    return;
+}
+
+
+/*
  * Pre-condition: An unitialised frequency array variable and an uninitialised variable to hold the number of frequencies.
  * Post-condition: An initialised number of frequencies variable and an initialised array containing the frequencies. 
  */
@@ -29,7 +52,8 @@ input_freq_and_voltage()
     {
         fscanf(input_freq_file, "%f %f", &freq_and_voltage[i].freq, &freq_and_voltage[i].voltage);
 
-        if (freq_and_voltage[i].freq <= 0 || freq_and_voltage[i].freq > 1 || freq_and_voltage[i].voltage < 0)
+        // Checking for invalid input. Frequency cannot be non-positive and greater than 1. Voltage cannot be non-positive.
+        if (freq_and_voltage[i].freq <= 0 || freq_and_voltage[i].freq > 1 || freq_and_voltage[i].voltage <= 0)
         {
             fprintf(stderr, "ERROR: Invalid input in frequency input file. Please enter valid data\n");
             exit(0);
@@ -114,7 +138,7 @@ find_static_freq_and_voltage()
     float task_utilisation = find_task_utilisation();
 
     // If the CPU utilisation of the task-set is greater than the max frequency.
-    if (task_utilisation >= freq_and_voltage[num_freq_levels -1].freq)
+    if (task_utilisation >= freq_and_voltage[num_freq_levels-1].freq)
     {
         static_freq_and_voltage_index = num_freq_levels - 1;
         static_freq_and_voltage.freq = freq_and_voltage[static_freq_and_voltage_index].freq;
@@ -126,7 +150,7 @@ find_static_freq_and_voltage()
     }
 
     // Finding the highest possible frequency that fits the task-set.
-    // Iterating through every frequency from lowest to highest.
+    // Iterating through every frequency from highest to lowest.
     for (int i = num_freq_levels - 1; i >= 0; i--)
     {
         if (task_utilisation <= freq_and_voltage[i].freq)

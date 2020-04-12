@@ -6,6 +6,8 @@
 #include "utility.h"
 #include "configuration.h"
 #include "task.h"
+#include "freq_and_voltage.h"
+#include "job.h"
 
 extern int num_tasks;
 extern Task *tasks;
@@ -22,18 +24,28 @@ extern FILE *statistics_file;
 
 /*
  * Pre-condition: Uninitialised I/O file pointers.
- * Post-condition: Initialised I/O file pointers.
+ * Post-condition: Initialises I/O file pointers. Creates, sorts and prints the tasks, freq and voltage, jobs. Also finds the static frequency and voltage for the task-set.
  */
 void
-open_files()
+open_files_and_init_data()
 {
+    // Opening the I/O files.
     input_tasks_file = fopen(INPUT_TASKS_FILE_NAME, "r");
     input_freq_file = fopen(INPUT_FREQ_FILE_NAME, "r");
     output_file = fopen(OUTPUT_FILE_NAME, "w");
     statistics_file = fopen(OUTPUT_STATISTICS_FILE_NAME, "w");
 
     // Checking for errors in file opening.
-    file_not_null_check();
+    files_not_null_check();
+
+    // Create, input, sort and print the task-set.
+    create_input_sort_print_tasks();
+
+    // Input, sort and print the frequency and voltage inputs. Also finds the static frequency and voltage.
+    input_sort_print_freq_and_voltage();
+
+    // Create, sort and print jobs.
+    create_sort_print_jobs();
 
     return;
 }
@@ -44,14 +56,20 @@ open_files()
  * Post-condition: Closes the given I/O files.
  */
 void
-close_files()
+close_files_and_delete_data()
 {
+    // Closing files.
     fprintf(output_file, "\n\n--------------------------- THE END ---------------------------\n");
     fprintf(statistics_file, "\n\n--------------------------- THE END ---------------------------\n");
     fclose(input_tasks_file);
     fclose(input_freq_file);
     fclose(output_file);
     fclose(statistics_file);
+
+    // Free task-set.
+    delete_freq_and_voltage();
+    delete_jobs();
+    delete_tasks();
 
     return;
 }
@@ -62,8 +80,9 @@ close_files()
  * Post-condition: Error if file open resulted in error.
  */
 void
-file_not_null_check()
+files_not_null_check()
 {
+    // File pointer is null when there is an error in opening the files.
     if (!input_tasks_file || !input_freq_file || !output_file || !statistics_file)
     {
         fprintf(stderr, "ERROR: Could not open the required files.\n");
@@ -106,9 +125,11 @@ lcm(float a, float b) {
 void
 find_hyperperiod()
 {
+    // Hyperperiod = lcm of all task's period in the task-set.
+
     int current_lcm = 1;
 
-    for (int i = 0; i < num_tasks; i++)
+    for (int i = 0; i < num_tasks; i++) // Iterating through each task in the task-set.
     {
         current_lcm = lcm(current_lcm, tasks[i].period);
     }
@@ -128,18 +149,18 @@ find_first_in_phase_time()
 
     long max_phase = find_max_phase();
     
-    for (long i = max_phase; i < 2 * hyperperiod; i++)
+    // Finding if the first in-phase time is within the time = 2*hyperperiod. If not we take first_in_phase_time = -1.
+    for (long i = max_phase; i <= 2 * hyperperiod; i++)
     {
         bool success = true;
-        for (long j = 0; j < num_tasks;  j++)
+        for (long j = 0; j < num_tasks;  j++) // Iterating through each task.
         {
-            if ((i - tasks[j].phase) % (tasks[j].period) != 0)
+            if ((i - tasks[j].phase) % (tasks[j].period) != 0) // Even if one task does not arrive at time = i, then i cannot be the first in-phase time. 
             {
                 success = false;
                 break;
             }
         }
-
         if (success)
         {
             first_in_phase_time = i;
@@ -147,6 +168,7 @@ find_first_in_phase_time()
         }
     }
 
+    // If control reaches here, then the fist in-phase time is not withiin (0, 2 * hyperperiod).
     fprintf(output_file, "Could not find the first in-phase time within (0, 2 * hyperperiod).\n");
 
     return;
@@ -160,7 +182,7 @@ find_first_in_phase_time()
 void
 find_end_of_execution_time()
 {
-    if (first_in_phase_time + hyperperiod <= 3 * hyperperiod)
+    if (first_in_phase_time  <= 2 * hyperperiod)
     {
         fprintf(output_file, "First in-phase time < 2 * hyperperiod. Scheduling till first in-phase time + hyperperiod.\n");
         end_of_execution_time = first_in_phase_time + hyperperiod;
@@ -170,8 +192,6 @@ find_end_of_execution_time()
         fprintf(output_file, "First in-phase time > 2 * hyperperiod. Scheduling till 3 * hyperperiod\n");
         end_of_execution_time = 3 * hyperperiod;
     }
-    
-    end_of_execution_time = fmin(3 * hyperperiod, first_in_phase_time + hyperperiod);
 
     return;
 }
@@ -195,9 +215,9 @@ calculate_num_instances_of_tasks()
     find_end_of_execution_time();
     fprintf(output_file, "End of execution time: %ld\n", end_of_execution_time);
 
-    for (int i = 0; i < num_tasks; i++)
+    for (int i = 0; i < num_tasks; i++) // Iterating through each task in the task-set.
     {
-        tasks[i].num_instances = ((int) end_of_execution_time) / tasks[i].period; 
+        tasks[i].num_instances = ((int) end_of_execution_time) / tasks[i].period; // Floor function automatically happens in integer division.
     }
 
     return;
@@ -205,13 +225,13 @@ calculate_num_instances_of_tasks()
 
 /*
  * Pre-condition: The periods and wcet of all tasks.
- * Post-condition: The CPU utilisation value for the given task-set.
+ * Post-condition: Finds the worst-case CPU utilisation value for the given task-set.
  */
 float
 find_task_utilisation()
 {
-    float task_utilisation = 0;
-    for (int i = 0; i < num_tasks; i++)
+    float task_utilisation = 0; // To calculate the worst-case CPU utilisation.
+    for (int i = 0; i < num_tasks; i++) // Iterating through each task in the task-set.
     {
         task_utilisation += (tasks[i].wcet / tasks[i].period);
     }
@@ -224,7 +244,6 @@ find_task_utilisation()
     {
         fprintf(output_file, "Task set has a utilisation: %0.2f <= 1. Might be able to schedule all jobs completely.\n", task_utilisation);
     }
-    
     
     return task_utilisation;
 }

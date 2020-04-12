@@ -13,11 +13,13 @@ typedef struct
     float *response_times;
     float *execution_times;
     int *execution_freq_indices;
+    float *dynamic_energy_consumed;
     int num_instances;
 }
 Task;
 
 // Functions.
+void create_input_sort_print_tasks(); // Calls all other functions.
 void create_tasks(); // Allocates memory for task array.
 void input_tasks(); // Takes input and initialises the task array.
 void print_tasks(); // Prints the task-set info.
@@ -33,3 +35,4 @@ void print_response_time_jitters(); // Finds and prints the response time jitter
 void print_execution_times(); // Finds and prints the execution times of all the jobs in the task-set.
 void print_waiting_times(); // Finds and prints the waiting times of all the jobs in the task-set.
 void print_execution_freqs(); // Finds and prints the execution frequencies and voltages of all jobs in the task set.
+void print_dynamic_energy_consumed(); // Finds and prints the dynamic energy consumed by all the jobs in the task set.

@@ -26,8 +26,8 @@ extern int static_freq_and_voltage_index;
 extern Freq_and_voltage static_freq_and_voltage;
 Freq_and_voltage current_freq_and_voltage;
 int current_freq_and_voltage_index;
-extern int num_freq_calculations;
-extern int num_freq_changes;
+extern long num_freq_calculations;
+extern long num_freq_changes;
 
 Job *ready_queue;
 int num_job_in_ready_queue;
@@ -39,12 +39,16 @@ float current_time;
 long next_deadline;
 float next_decision_point;
 
-int num_preemptions;
-int num_cache_impact_points;
+long num_context_switches;
+long num_preemptions;
+long num_cache_impact_points;
+int prev_task_instance;
 int prev_task;
+int current_task_instance;
 int current_task;
+int prev_return_value;
 
-extern float total_power;
+extern float total_dynamic_energy;
 
 
 /*
@@ -67,17 +71,19 @@ start_scheduler()
     current_job_ready_queue_index = -1;
     current_time = 0;
 
+    num_context_switches = 0;
     num_preemptions = 0;
     num_cache_impact_points = 0;
     prev_task = -1;
     current_task = -1;
+    prev_return_value = -1;
 
     current_freq_and_voltage = freq_and_voltage[static_freq_and_voltage_index];
     current_freq_and_voltage_index = static_freq_and_voltage_index;
     num_freq_changes = 0;
     num_freq_calculations = 0;
 
-    total_power = 0;
+    total_dynamic_energy = 0;
 
     // Starting the scheduler.
     scheduler(); // Since the scheduler is recursive, one call to the scheduler is enough.
@@ -90,11 +96,15 @@ start_scheduler()
 
     // Printing statistics.
     fprintf(statistics_file, "------------------------------------------------------------\n");
-    fprintf(statistics_file, "Total dynamic-power consumer: %0.2f\n", total_power);
-    fprintf(statistics_file, "Total number of preemptions: %d\n", num_preemptions);
-    fprintf(statistics_file, "Total number of cache-impact points: %d\n", num_cache_impact_points);
-    fprintf(statistics_file, "Total number of frequency calculations: %d\n", num_freq_calculations);
-    fprintf(statistics_file, "Total number of frequency changes: %d\n", num_freq_changes);
+    fprintf(statistics_file, "Total dynamic-energy consumer: %0.2f\n", total_dynamic_energy);
+    fprintf(statistics_file, "Total number of context-switches: %ld\n", num_context_switches);
+    fprintf(statistics_file, "Total number of preemptions: %ld\n", num_preemptions);
+    fprintf(statistics_file, "Total number of cache-impact points: %ld\n", num_cache_impact_points);
+    fprintf(statistics_file, "Total number of frequency calculations: %ld\n", num_freq_calculations);
+    fprintf(statistics_file, "Total number of frequency changes: %ld\n", num_freq_changes);
+
+    // Print job statistics.
+    capture_and_print_task_statistics();
 
     return;
 }
@@ -257,7 +267,6 @@ select_frequency()
     else // If the frequency has not changed as compared to the previous execution.
     {
         fprintf(output_file, "No frequency change. New task utilisation at: %0.2f, frequency: %0.2f\n", dynamic_task_utilisation, current_freq_and_voltage.freq);
-        fprintf(output_file, "Next deadline: %ld\n", next_deadline);
     }
 
     return;
@@ -350,7 +359,7 @@ find_execution_time_periodic_job()
     ready_queue[num_job_in_ready_queue - 1].aet = aet;
     ready_queue[num_job_in_ready_queue - 1].time_left = aet;
 
-    fprintf(output_file, "Job J%d,%d: Execution time to finish: %0.2f\n", ready_queue[num_job_in_ready_queue - 1].task_num, ready_queue[num_job_in_ready_queue - 1].instance_num, ready_queue[num_job_in_ready_queue - 1].aet);
+    fprintf(output_file, "Job J%d,%d: Execution time left to finish: %0.2f\n", ready_queue[num_job_in_ready_queue - 1].task_num, ready_queue[num_job_in_ready_queue - 1].instance_num, ready_queue[num_job_in_ready_queue - 1].aet);
 
     return;
 }
@@ -398,9 +407,10 @@ complete_job()
         {
             jobs[i].finish_time = current_time;
             jobs[i].time_executed = ready_queue[current_job_ready_queue_index].aet;
+            jobs[i].aet = ready_queue[current_job_ready_queue_index].aet;
             jobs[i].alive = false;
             jobs[i].execution_freq_index = current_freq_and_voltage_index;
-            jobs[i].aet = ready_queue[current_job_ready_queue_index].aet;
+            jobs[i].dynamic_energy_consumed = ready_queue[current_job_ready_queue_index].dynamic_energy_consumed;
 
             break;
         }
@@ -436,6 +446,17 @@ run_job()
     float execution_time = next_decision_point - current_time;
 
     current_task = ready_queue[current_job_ready_queue_index].task_num;
+    current_task_instance = ready_queue[current_job_ready_queue_index].instance_num;
+
+    if ((prev_return_value == 2) && ((current_task != prev_task) || (current_task_instance != prev_task_instance && current_task == prev_task))) // If there was a preemption when the latest job arrived to the ready queue.
+    {
+        fprintf(output_file, "Job J%d,%d was preempted.\n", prev_task, prev_task_instance);
+        num_preemptions++;
+    }
+
+    if (prev_task != current_task) // A cache impact point can happen even when there was no preemption, but a voluntary context switch.
+            num_cache_impact_points++;
+
     
     // Updating meta-data.
     ready_queue[current_job_ready_queue_index].time_executed += execution_time;
@@ -447,7 +468,7 @@ run_job()
     current_time = next_decision_point;
 
     // Adding the dynamic power consumed by this execution to the total.
-    add_power();
+    add_dynamic_energy();
 
     if (return_value == 1) // If the job was completed.
     {
@@ -456,17 +477,14 @@ run_job()
         complete_job();
         // printf("terminated.\n");
     }
-    else // If the job was interrupted by the arrival of a new job.
+    else if(return_value == 2) // If the job was interrupted by the arrival of a new job.
     {
-        fprintf(output_file, "Job J%d,%d being preempted at t=%0.2f.\n", ready_queue[current_job_ready_queue_index].task_num, ready_queue[current_job_ready_queue_index].instance_num, current_time);
-        //------------------------------------------------------------------------------------------------------
-        // Update required. (Not all arrivals result in preemptions).
-        num_preemptions++;
-        if (prev_task != current_task)
-            num_cache_impact_points++;
+        fprintf(output_file, "Job J%d,%d was interrupted by a new job arrival at t=%0.2f.\n", ready_queue[current_job_ready_queue_index].task_num, ready_queue[current_job_ready_queue_index].instance_num, current_time);
     }
 
     prev_task = current_task;
+    prev_task_instance = current_task_instance;
+    prev_return_value = return_value;
 
     return;
 }
@@ -500,7 +518,7 @@ print_finished_jobs()
  * Post-condition: Updates the total dynamic power by adding the dynamic power consumer by the latest job that executed.
  */
 void
-add_power()
+add_dynamic_energy()
 {
     Job job = ready_queue[current_job_ready_queue_index];
 
@@ -508,12 +526,16 @@ add_power()
     float execution_freq = freq_and_voltage[job.execution_freq_index].freq;
     float execution_voltage = freq_and_voltage[job.execution_freq_index].voltage;
 
-    // Power += v * v * f * time.
-    float power = execution_voltage * execution_voltage * execution_freq * job.time_next_execution;
+    // Dynamic power consumed = v * v * f * c. (Let c = 1 is constant).
+    // Dynamic energy consumed = Dynamic power * time.
+    // Dynamic energy = v * v * f * time.
+    float dynamic_energy = execution_voltage * execution_voltage * execution_freq * job.time_next_execution;
 
-    total_power += power;
+    total_dynamic_energy += dynamic_energy;
 
-    fprintf(output_file, "Power consumed by J%d,%d: %0.3f\n", job.task_num, job.instance_num, power);
+    ready_queue[current_job_ready_queue_index].dynamic_energy_consumed += dynamic_energy;
+
+    fprintf(output_file, "Dynamic energy consumed by J%d,%d: %0.3f\n", job.task_num, job.instance_num, dynamic_energy);
 
     return;
 }
@@ -521,7 +543,7 @@ add_power()
 
 /*
  * Pre-condition: Ready queue, list of jobs yet to arrive, next deadline and next decision points.
- * Post-condition: Adds, runs and completes jobs in the right order of priority of RM. Also adds to the total dynamic power consumed.
+ * Post-condition: Adds, runs and completes jobs in the right order of priority of RM. Also adds to the total dynamic energy consumed.
  */
 void
 scheduler()
@@ -592,23 +614,32 @@ scheduler()
         if (num_job_in_ready_queue == 0 && current_job_overall_job_index >= num_jobs - 1) // If the final job has completed.
             return;
         else
+        {
+            num_context_switches++;
             scheduler();
+        }
     }
+
+    if (num_job_in_ready_queue == 0 && current_job_overall_job_index >= num_jobs - 1) // If the final job has completed.
+        return;
 
     // Sorting ready queue before allocating time and finding dynamic freq.
     sort_ready_queue();
     print_ready_queue();
 
-    allocate_time();
-    select_frequency();
-
     fprintf(output_file, "Decision making overhead being added. %0.2f + %0.2f = %0.2f\n", current_time, DECISION_MAKING_OVERHEAD, current_time + DECISION_MAKING_OVERHEAD);
     // Adding the decisioin making time.
     current_time += DECISION_MAKING_OVERHEAD;
 
+    allocate_time();
+    select_frequency();
+
     // All the jobs that run from the ready queue will be from index 0 of the ready queue as the ready queue is sorted based on priority (which is the period in case of RM).
     current_job_ready_queue_index = 0;
     run_job();
+
+    if (num_job_in_ready_queue > 0 && current_job_overall_job_index < num_jobs - 1) // If this was not the last job to execute.
+        num_context_switches++;
 
     print_finished_jobs();
     

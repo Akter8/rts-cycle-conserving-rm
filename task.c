@@ -15,12 +15,35 @@ extern FILE *statistics_file;
 extern int num_tasks;
 extern Task *tasks;
 
-extern float end_of_execution_time;
-
 extern int num_jobs;
 extern Job *jobs;
 
 extern Freq_and_voltage *freq_and_voltage;
+
+
+/*
+ * Pre-condition: An uninitialised variable num_tasks, uninitialised variable to hold the task set information.
+ * Post-condition: Initialise num_tasks, create space and initialise the heap memory to store task data. Sorts the task-set and then prints it.
+ * 
+ * This function acts as a init_tasks() function and calls all the other initialising functions.
+ */
+void
+create_input_sort_print_tasks()
+{
+    // Read number of tasks from the input file.
+    create_tasks();
+
+    // Read the task-set.
+    input_tasks();
+
+    // Sort the task-set.
+    sort_tasks();
+
+    // Print the task-set.
+    print_tasks();
+
+    return;
+}
 
 
 /*
@@ -105,11 +128,11 @@ sort_tasks_comparator(const void *a, const void *b)
     task_a = *((Task *) a);
     task_b = *((Task *) b);
 
-    if (task_a.period != task_b.period)
+    if (task_a.period != task_b.period) // If the tasks can be compared on their periods.
     {
         return task_a.period - task_b.period;
     }
-    else
+    else // Else compare based on their wcet.
     {
         return task_a.wcet - task_b.wcet;
     }
@@ -273,15 +296,16 @@ void
 print_waiting_times()
 {
     fprintf(statistics_file, "\nWaiting time statistics:\n");
-    for (int i = 0; i < num_tasks; i++)
+    for (int i = 0; i < num_tasks; i++) // Iterates through every task in the task-set.
     {
         float max = -FLT_MAX, min = FLT_MAX, avg = 0;
         Task task = tasks[i];
         float waiting_time;
 
         fprintf(statistics_file, "Task-%d: ", task.task_num);
-        for (int j = 0; j < task.num_instances; j++)
+        for (int j = 0; j < task.num_instances; j++) // Iterates through every instance of the task.
         {
+            // Waiting time = response time - execution time.
             waiting_time = task.response_times[j] - task.execution_times[j];
 
             fprintf(statistics_file, "%0.1f, ", waiting_time);
@@ -348,6 +372,40 @@ print_execution_freqs()
 
 
 /*
+ * Pre-condition: The task array containing the dynamic power consumed by every instance.
+ * Post-condition: Prints the dynamic energy consumed by every instance. Also finds the min, max and avg of the same.
+ */
+void
+print_dynamic_energy_consumed()
+{
+    fprintf(statistics_file, "\nDynamic Energy statistics:\n");
+    for (int i = 0; i < num_tasks; i++) // Iterates through every task in the task-set.
+    {
+        float max = -FLT_MAX, min = FLT_MAX, avg = 0;
+        Task task = tasks[i];
+        float dynamic_energy;
+
+        fprintf(statistics_file, "Task-%d: ", task.task_num);
+        for (int j = 0; j < task.num_instances; j++) // Iterates through each task instance of the chosen task.
+        {
+            dynamic_energy = task.dynamic_energy_consumed[i];
+
+            fprintf(statistics_file, "%0.5f, ", dynamic_energy);
+
+            avg += dynamic_energy;
+            if (dynamic_energy > max)
+                max = dynamic_energy;
+            if (dynamic_energy < min)
+                min = dynamic_energy;
+        }
+        fprintf(statistics_file, "\n\t(Max: %0.5f, Min:%0.5f, Avg: %0.5f)\n", max, min, avg / task.num_instances);
+    }
+
+    return;
+}
+
+
+/*
  * Pre-condition: Valid response time and execution time data from jobs that finished execution.
  * Post-condition: Finds the task-wise response, execution and waiting time and the statistics associated with them.
  */
@@ -359,7 +417,8 @@ capture_and_print_task_statistics()
     {
         tasks[i].response_times = (float *) calloc(tasks[i].num_instances, sizeof(float));
         tasks[i].execution_times = (float *) calloc(tasks[i].num_instances, sizeof(float));
-        tasks[i].execution_freq_indices = (int *) calloc(tasks[i].num_instances, sizeof(float));
+        tasks[i].execution_freq_indices = (int *) calloc(tasks[i].num_instances, sizeof(int));
+        tasks[i].dynamic_energy_consumed = (float *) calloc(tasks[i].num_instances, sizeof(float));
     }
 
     // Holding a index variable for every task.
@@ -374,6 +433,7 @@ capture_and_print_task_statistics()
         tasks[task_index].response_times[task_indices[task_index]] = jobs[i].finish_time - jobs[i].arrival_time;
         tasks[task_index].execution_times[task_indices[task_index]] = jobs[i].aet;
         tasks[task_index].execution_freq_indices[task_indices[task_index]] = jobs[i].execution_freq_index;
+        tasks[task_index].dynamic_energy_consumed[task_indices[task_index]] = jobs[i].dynamic_energy_consumed;
 
         task_indices[task_index]++;
     }
@@ -389,20 +449,21 @@ capture_and_print_task_statistics()
     print_execution_times();
     print_waiting_times();
     print_execution_freqs();
+    print_dynamic_energy_consumed();
 
     return;
 }
 
 
 /*
- * Pre-condition:
- * Post-condition:
+ * Pre-condition: The task-set array containing the phase of each task.
+ * Post-condition: The largest phase value of each task in the task-set.
  */
 long
 find_max_phase()
 {
-    long max = 0;
-    for (int i = 0; i < num_tasks; i++)
+    long max = 0; // Min possible value of phase is 0.
+    for (int i = 0; i < num_tasks; i++) // Iterating through each task in the task-set.
     {
         if (max < tasks[i].phase)
             max = tasks[i].phase;
@@ -420,11 +481,12 @@ void
 delete_tasks()
 {
     // Freeing the heap data inside task data.
-    for (int i = 0; i < num_tasks; i++)
+    for (int i = 0; i < num_tasks; i++) // Iterating through each task in the task-set.
     {
         free(tasks[i].response_times);
         free(tasks[i].execution_times);
         free(tasks[i].execution_freq_indices);
+        free(tasks[i].dynamic_energy_consumed);
     }
     
     // Freeing the task data itself.
