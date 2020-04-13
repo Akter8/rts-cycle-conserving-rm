@@ -3,6 +3,7 @@
 
 #include "freq_and_voltage.h"
 #include "utility.h"
+#include "task.h"
 
 extern FILE *input_freq_file;
 extern int num_freq_levels;
@@ -12,6 +13,9 @@ extern FILE *output_file;
 
 extern Freq_and_voltage static_freq_and_voltage;
 extern int static_freq_and_voltage_index;
+
+extern int num_tasks;
+extern Task *tasks;
 
 
 /*
@@ -134,26 +138,25 @@ delete_freq_and_voltage()
 void
 find_static_freq_and_voltage()
 {
-    static_freq_and_voltage_index = 0;
-    float task_utilisation = find_task_utilisation();
+    static_freq_and_voltage_index = num_freq_levels - 1;
 
     // If the CPU utilisation of the task-set is greater than the max frequency.
-    if (task_utilisation >= freq_and_voltage[num_freq_levels-1].freq)
-    {
-        static_freq_and_voltage_index = num_freq_levels - 1;
-        static_freq_and_voltage.freq = freq_and_voltage[static_freq_and_voltage_index].freq;
-        static_freq_and_voltage.voltage = freq_and_voltage[static_freq_and_voltage_index].voltage;
+    // if (task_utilisation >= freq_and_voltage[num_freq_levels-1].freq)
+    // {
+    //     static_freq_and_voltage_index = num_freq_levels - 1;
+    //     static_freq_and_voltage.freq = freq_and_voltage[static_freq_and_voltage_index].freq;
+    //     static_freq_and_voltage.voltage = freq_and_voltage[static_freq_and_voltage_index].voltage;
 
-        fprintf(output_file, "This task-set demands static freq: %0.2f, static voltage: %0.2f\n", static_freq_and_voltage.freq, static_freq_and_voltage.voltage);
+    //     fprintf(output_file, "This task-set demands static freq: %0.2f, static voltage: %0.2f\n", static_freq_and_voltage.freq, static_freq_and_voltage.voltage);
 
-        return;
-    }
+    //     return;
+    // }
 
     // Finding the highest possible frequency that fits the task-set.
     // Iterating through every frequency from highest to lowest.
     for (int i = num_freq_levels - 1; i >= 0; i--)
     {
-        if (task_utilisation <= freq_and_voltage[i].freq)
+        if (rm_test(freq_and_voltage[i].freq) == 1)
         {
             static_freq_and_voltage_index = i;
         }
@@ -170,4 +173,26 @@ find_static_freq_and_voltage()
     fprintf(output_file, "This task-set demands static freq: %0.2f, static voltage: %0.2f\n", static_freq_and_voltage.freq, static_freq_and_voltage.voltage);
 
     return;
+}
+
+
+int
+rm_test(float relative_freq)
+{
+    for (int i = 0; i < num_tasks; i++)
+    {
+        float sum = 0;
+        for (int k = 0; k <= i; k++)
+        {
+            int int_divide = tasks[i].period / tasks[k].period;
+            sum += int_divide * tasks[k].wcet;
+        }
+
+        if (sum > tasks[i].period * relative_freq)
+        {
+            return 0;
+        }
+    }
+
+    return 1;
 }

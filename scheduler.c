@@ -59,7 +59,7 @@ void
 start_scheduler()
 {
     fprintf(output_file, "------------------------------------------------------------\n");
-    fprintf(output_file, "Scheduler starting.\n");
+    fprintf(output_file, "Scheduler starting. (Scheduling from t=0 to t=%ld).\n\n", end_of_execution_time);
 
     // Setting the seed before random numbers are generated.
     srand(time(NULL));
@@ -88,10 +88,12 @@ start_scheduler()
     // Starting the scheduler.
     scheduler(); // Since the scheduler is recursive, one call to the scheduler is enough.
 
+    print_finished_jobs();
+
     // Once the scheduler has finished scheduling.
     free(ready_queue);
 
-    fprintf(output_file, "\n\nScheduler has finished.\n");
+    fprintf(output_file, "\n\nScheduler has finished scheduling.\n");
     fprintf(output_file, "\n\nDisclaimer: Please open the statistics file to view the statistics of the execution of the task set.\n");
 
     // Printing statistics.
@@ -509,6 +511,24 @@ print_finished_jobs()
     }
     fprintf(output_file, "\nNumber of finished jobs: %d\n", count);
 
+    // If all the jobs are done.
+    if (count == num_jobs)
+    {
+        fprintf(output_file, "All the jobs are done.\n");
+    }
+    else
+    {
+        fprintf(output_file, "%d number of jobs are still left.\n", num_jobs);
+        fprintf(output_file, "List of jobs still left: ");
+        for (int i = 0; i < num_jobs; i++)
+        {
+            if (jobs[i].alive == true)
+                fprintf(output_file, "J%d,%d ", jobs[i].task_num, jobs[i].instance_num);
+        }
+        
+    }
+    
+
     return;
 }
 
@@ -625,7 +645,7 @@ scheduler()
 
     // Sorting ready queue before allocating time and finding dynamic freq.
     sort_ready_queue();
-    print_ready_queue();
+    // print_ready_queue();
 
     fprintf(output_file, "Decision making overhead being added. %0.2f + %0.2f = %0.2f\n", current_time, DECISION_MAKING_OVERHEAD, current_time + DECISION_MAKING_OVERHEAD);
     // Adding the decisioin making time.
@@ -637,11 +657,12 @@ scheduler()
     // All the jobs that run from the ready queue will be from index 0 of the ready queue as the ready queue is sorted based on priority (which is the period in case of RM).
     current_job_ready_queue_index = 0;
     run_job();
+    fprintf(output_file, "\n");
 
     if (num_job_in_ready_queue > 0 && current_job_overall_job_index < num_jobs - 1) // If this was not the last job to execute.
         num_context_switches++;
 
-    print_finished_jobs();
+    // print_finished_jobs();
     
     scheduler(); // Recursively calling the scheduler to run the next job.
 

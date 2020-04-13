@@ -20,7 +20,7 @@ Task *tasks;
 int num_jobs;
 Job *jobs;
 
-// Timing parameters of the program..
+// Timing parameters of the program.
 long hyperperiod;
 long first_in_phase_time;
 long end_of_execution_time;

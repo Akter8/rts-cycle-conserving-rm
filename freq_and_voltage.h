@@ -14,3 +14,4 @@ void print_freq_and_voltage(); // Prints the array of structures containing the 
 void delete_freq_and_voltage(); // Deallocates and frees the memory allocated to array of structures containing the frequency and voltage data.
 
 void find_static_freq_and_voltage(); // Used to find the static frequency and voltage for the task-set.
+int rm_test(float); // Used to check whether a frequency passes the static frequency test or not.

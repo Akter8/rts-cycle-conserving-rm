@@ -208,6 +208,9 @@ calculate_num_instances_of_tasks()
     find_hyperperiod();
     find_first_in_phase_time();
 
+    // Find the worst-case task utilisation of the task-set.
+    find_task_utilisation();
+    
     fprintf(output_file, "Hyperperiod: %ld\n", hyperperiod);
     fprintf(output_file, "First in-phase time: %ld\n", first_in_phase_time);
 

@@ -12,7 +12,7 @@
 ## Tasks left
 
 * [ ] Fix the bug related to 0 energy consumed for every job that runs.
-* [ ] Test the scheduler for bugs.
+* [ ] Test the scheduler for bugs with task sets with task util > 1.
 * [ ] Convert as many void functions to ones with non-void return values.
 * [ ] Reduce the number of global variables as much as possible.
 * [ ] Write the reason why phase, period and deadlines are integers.
