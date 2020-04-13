@@ -184,7 +184,7 @@ print_response_times()
             if (response_time < min)
                 min = response_time;
         }
-        fprintf(statistics_file, "\n\t(Max: %0.1f, Min:%0.1f, Avg: %0.1f)\n", max, min, avg / task.num_instances);
+        fprintf(statistics_file, "\n\t(Max: %0.1f, Min: %0.1f, Avg: %0.1f)\n", max, min, avg / task.num_instances);
     }
 
     return;
@@ -279,7 +279,7 @@ print_execution_times()
             if (execution_time < min)
                 min = execution_time;
         }
-        fprintf(statistics_file, "\n\t(Max: %0.1f, Min:%0.1f, Avg: %0.1f)\n", max, min, avg / task.num_instances);
+        fprintf(statistics_file, "\n\t(Max: %0.1f, Min: %0.1f, Avg: %0.1f)\n", max, min, avg / task.num_instances);
     }
 
     return;
@@ -316,7 +316,7 @@ print_waiting_times()
             if (waiting_time < min)
                 min = waiting_time;
         }
-        fprintf(statistics_file, "\n\t(Max: %0.1f, Min:%0.1f, Avg: %0.1f)\n", max, min, avg / task.num_instances);
+        fprintf(statistics_file, "\n\t(Max: %0.1f, Min: %0.1f, Avg: %0.1f)\n", max, min, avg / task.num_instances);
     }
 
     return;
@@ -364,7 +364,7 @@ print_execution_freqs()
                 min_voltage = execution_voltage;
         }
         fprintf(statistics_file, "\n\t(Max Freq: %0.1f, Min Freq:%0.1f, Avg Freq: %0.1f)\n", max_freq, min_freq, avg_freq / task.num_instances);
-        fprintf(statistics_file, "\t(Max Voltage: %0.1fV, Min Voltage:%0.1fV, Avg Voltage: %0.1fV)\n", max_voltage, min_voltage, avg_voltage / task.num_instances);
+        fprintf(statistics_file, "\t(Max Voltage: %0.1fV, Min Voltage: %0.1fV, Avg Voltage: %0.1fV)\n", max_voltage, min_voltage, avg_voltage / task.num_instances);
     }
 
     return;
@@ -388,9 +388,9 @@ print_dynamic_energy_consumed()
         fprintf(statistics_file, "Task-%d: ", task.task_num);
         for (int j = 0; j < task.num_instances; j++) // Iterates through each task instance of the chosen task.
         {
-            dynamic_energy = task.dynamic_energy_consumed[i];
+            dynamic_energy = task.dynamic_energy_consumed[j];
 
-            fprintf(statistics_file, "%0.5f, ", dynamic_energy);
+            fprintf(statistics_file, "%0.2f, ", dynamic_energy);
 
             avg += dynamic_energy;
             if (dynamic_energy > max)
@@ -398,7 +398,7 @@ print_dynamic_energy_consumed()
             if (dynamic_energy < min)
                 min = dynamic_energy;
         }
-        fprintf(statistics_file, "\n\t(Max: %0.5f, Min:%0.5f, Avg: %0.5f)\n", max, min, avg / task.num_instances);
+        fprintf(statistics_file, "\n\t(Max: %0.2f, Min: %0.2f, Avg: %0.2f)\n", max, min, avg / task.num_instances);
     }
 
     return;

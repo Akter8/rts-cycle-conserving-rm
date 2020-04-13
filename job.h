@@ -37,3 +37,4 @@ void print_jobs(); // To print the information related to the jobs.
 void delete_jobs(); // To free the heap data once the execution is complete.
 
 void calculate_num_jobs();
+float find_avg_percentage_execution();

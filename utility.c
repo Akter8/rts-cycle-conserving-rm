@@ -59,8 +59,8 @@ void
 close_files_and_delete_data()
 {
     // Closing files.
-    fprintf(output_file, "\n\n--------------------------- THE END ---------------------------\n");
-    fprintf(statistics_file, "\n\n--------------------------- THE END ---------------------------\n");
+    fprintf(output_file, "\n--------------------------- THE END ---------------------------\n");
+    fprintf(statistics_file, "\n--------------------------- THE END ---------------------------\n");
     fclose(input_tasks_file);
     fclose(input_freq_file);
     fclose(output_file);
@@ -210,7 +210,7 @@ calculate_num_instances_of_tasks()
 
     // Find the worst-case task utilisation of the task-set.
     find_task_utilisation();
-    
+
     fprintf(output_file, "Hyperperiod: %ld\n", hyperperiod);
     fprintf(output_file, "First in-phase time: %ld\n", first_in_phase_time);
 

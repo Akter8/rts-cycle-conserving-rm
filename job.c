@@ -170,6 +170,51 @@ print_jobs()
 
 
 /*
+ * Pre-condition: The job array containint the actual execution time and the wcet.
+ * Post-condition: The weighted average of the percent of the percent of execution for the task-set.
+ */
+float
+find_avg_percentage_execution()
+{
+    float numerator = 0;
+    float denominator = 0;
+
+    /*
+     *
+     *                      sum(number * weight)
+     * Weighted average = ------------------------
+     *                           sum(weight)
+     * 
+     * Here, number = percent of actual execution as compared to worst case.
+     * and,  weight = wcet.
+     * 
+     *                      sum(percent of actual execution compared to worst case * worst case execution time)
+     * Weighted average = --------------------------------------------------------------------------------------
+     *                                                  sum(worst case execution time)
+     * 
+     *                      sum(actual execution time / worst case execution time * worst case execution time)
+     *                  = --------------------------------------------------------------------------------------
+     *                                                  sum(worst case execution time)
+     * 
+     *                       sum(actual execution time)
+     *                  = ---------------------------------
+     *                      sum(worst case execution time)
+     *
+     */
+
+    for (int i = 0; i < num_jobs; i++)
+    {
+        Job job = jobs[i];
+
+        numerator += job.aet;
+        denominator += job.wcet;
+    }
+    
+    return numerator / denominator * 100;
+}
+
+
+/*
  * Pre-condition: An array containing job data.
  * Post-condition: Frees the job data from the heap.
  */

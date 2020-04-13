@@ -94,11 +94,12 @@ start_scheduler()
     free(ready_queue);
 
     fprintf(output_file, "\n\nScheduler has finished scheduling.\n");
-    fprintf(output_file, "\n\nDisclaimer: Please open the statistics file to view the statistics of the execution of the task set.\n");
+    fprintf(output_file, "\nDisclaimer: Please open the statistics file to view the statistics of the execution of the task set.\n");
 
     // Printing statistics.
     fprintf(statistics_file, "------------------------------------------------------------\n");
     fprintf(statistics_file, "Total dynamic-energy consumer: %0.2f\n", total_dynamic_energy);
+    fprintf(statistics_file, "Weighted average percentage of execution of jobs: %0.1f\n", find_avg_percentage_execution());
     fprintf(statistics_file, "Total number of context-switches: %ld\n", num_context_switches);
     fprintf(statistics_file, "Total number of preemptions: %ld\n", num_preemptions);
     fprintf(statistics_file, "Total number of cache-impact points: %ld\n", num_cache_impact_points);
@@ -400,7 +401,7 @@ complete_job()
     if (current_job_overall_job_index == num_jobs - 1 && num_job_in_ready_queue == 0) // If the job queues are empty.
         return;
 
-    fprintf(output_file, "Job J%d,%d: Finished execution at t=%0.2f.\n", ready_queue[current_job_ready_queue_index].task_num, ready_queue[current_job_ready_queue_index].instance_num, current_time);
+    fprintf(output_file, "Job J%d,%d: Finished execution at t=%0.2f. Dynamic energy consumed: %0.2f.\n", ready_queue[current_job_ready_queue_index].task_num, ready_queue[current_job_ready_queue_index].instance_num, current_time, ready_queue[current_job_ready_queue_index].dynamic_energy_consumed);
 
     // Searching for the same job in the jobs queue so as to update it with run-time metadata.
     for (int i = 0; i < num_jobs; i++)
@@ -459,18 +460,17 @@ run_job()
     if (prev_task != current_task) // A cache impact point can happen even when there was no preemption, but a voluntary context switch.
             num_cache_impact_points++;
 
-    
+    // Adding the dynamic power consumed by this execution to the total.
+    add_dynamic_energy();
+
     // Updating meta-data.
     ready_queue[current_job_ready_queue_index].time_executed += execution_time;
     ready_queue[current_job_ready_queue_index].time_next_execution -= execution_time;
     ready_queue[current_job_ready_queue_index].time_left -= execution_time;
 
-    fprintf(output_file, "Job J%d,%d: Executed from t=%0.2f to t=%0.2f. Time left after current execution: %0.5f\n", ready_queue[current_job_ready_queue_index].task_num, ready_queue[current_job_ready_queue_index].instance_num, current_time, next_decision_point, ready_queue[current_job_ready_queue_index].aet - ready_queue[current_job_ready_queue_index].time_executed);
+    fprintf(output_file, "Job J%d,%d: Executed from t=%0.2f to t=%0.2f. Time left after current execution: %0.2f\n", ready_queue[current_job_ready_queue_index].task_num, ready_queue[current_job_ready_queue_index].instance_num, current_time, next_decision_point, ready_queue[current_job_ready_queue_index].aet - ready_queue[current_job_ready_queue_index].time_executed);
 
     current_time = next_decision_point;
-
-    // Adding the dynamic power consumed by this execution to the total.
-    add_dynamic_energy();
 
     if (return_value == 1) // If the job was completed.
     {
@@ -488,6 +488,8 @@ run_job()
     prev_task_instance = current_task_instance;
     prev_return_value = return_value;
 
+    fprintf(output_file, "\n");
+
     return;
 }
 
@@ -499,7 +501,7 @@ run_job()
 void
 print_finished_jobs()
 {
-    fprintf(output_file, "\n\nPrinting finished jobs.\n");
+    fprintf(output_file, "\nPrinting finished jobs.\n");
     int count = 0;
     for (int i = 0; i < num_jobs; i++) // Iterating through all the jobs.
     {
@@ -543,8 +545,8 @@ add_dynamic_energy()
     Job job = ready_queue[current_job_ready_queue_index];
 
     // Finding the freq and voltage at which the current job executed.
-    float execution_freq = freq_and_voltage[job.execution_freq_index].freq;
-    float execution_voltage = freq_and_voltage[job.execution_freq_index].voltage;
+    float execution_freq = freq_and_voltage[current_freq_and_voltage_index].freq;
+    float execution_voltage = freq_and_voltage[current_freq_and_voltage_index].voltage;
 
     // Dynamic power consumed = v * v * f * c. (Let c = 1 is constant).
     // Dynamic energy consumed = Dynamic power * time.
@@ -555,7 +557,7 @@ add_dynamic_energy()
 
     ready_queue[current_job_ready_queue_index].dynamic_energy_consumed += dynamic_energy;
 
-    fprintf(output_file, "Dynamic energy consumed by J%d,%d: %0.3f\n", job.task_num, job.instance_num, dynamic_energy);
+    fprintf(output_file, "Dynamic energy consumed by J%d,%d: %0.2f\n", job.task_num, job.instance_num, dynamic_energy);
 
     return;
 }
@@ -602,6 +604,7 @@ scheduler()
         }
         else // If no more jobs are left.
         {
+            fprintf(output_file, "\n");
             break;
         }
     }
@@ -657,7 +660,6 @@ scheduler()
     // All the jobs that run from the ready queue will be from index 0 of the ready queue as the ready queue is sorted based on priority (which is the period in case of RM).
     current_job_ready_queue_index = 0;
     run_job();
-    fprintf(output_file, "\n");
 
     if (num_job_in_ready_queue > 0 && current_job_overall_job_index < num_jobs - 1) // If this was not the last job to execute.
         num_context_switches++;

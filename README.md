@@ -11,7 +11,7 @@
 
 ## Tasks left
 
-* [ ] Fix the bug related to 0 energy consumed for every job that runs.
+* [X] Fix the bug related to 0 energy consumed for every job that runs.
 * [ ] Test the scheduler for bugs with task sets with task util > 1.
 * [ ] Convert as many void functions to ones with non-void return values.
 * [ ] Reduce the number of global variables as much as possible.
@@ -20,14 +20,6 @@
 * [ ] Make the driver module and function to have only 20 lines of code at max.
 * [ ] Convert README.md to README.txt before submission.
 * [ ] Rename the tar file of the program to the group number.
-
-## Things to bear in mind
-
-* Call the scheduler only when there is a decision point-- arrival or termination.
-* Schedule till min(3 * hyperperiod, first in-phase time + hyperperiod).
-* Only periodic jobs execute. They execute for 50-100% of the wcet.
-* Implicit deadlines for jobs.
-* Output: response times (min, max, avg), response time jitters (relative and absolute), execution times (min, max, avg), waiting times (min, max, avg).
 
 ## Description of Files
 
