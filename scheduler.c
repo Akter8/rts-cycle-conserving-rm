@@ -48,6 +48,8 @@ int current_task_instance;
 int current_task;
 int prev_return_value;
 
+int event;
+
 extern float total_dynamic_energy;
 
 
@@ -181,20 +183,22 @@ allocate_time()
     float time_left = next_deadline - current_time;
     // fprintf(output_file, "next deadline: %ld, current time: %0.2f\n", next_deadline, current_time);
 
+    float overheads = FREQUENCY_CALCULATION_OVERHEAD;
+    if (event == 1)
+        overheads += FREQUENCY_CHANGE_OVERHEAD;
+
     // Jobs are already sorted based on period/priority in the ready queue.
     // Allocating time to each task based on priority.
     for (int i = 0; i < num_job_in_ready_queue; i++)
     {
-        if (ready_queue[i].aet - ready_queue[i].time_executed <= time_left) // If more allocation can be done after this allocation.
+        if (ready_queue[i].time_left + overheads <= time_left) // If more allocation can be done after this allocation.
         {
-            ready_queue[i].time_next_execution =  ready_queue[i].aet - ready_queue[i].time_executed;
-            time_left = time_left - ready_queue[i].aet - ready_queue[i].time_executed;
-            // fprintf(output_file, "%0.2f\n", ready_queue[i].time_next_execution);
+            ready_queue[i].time_next_execution =  ready_queue[i].time_left - overheads;
+            time_left = time_left - ready_queue[i].time_left - overheads;
         }
         else // If this is the last non-zero allocation.
         {
-            // fprintf(output_file, "time left = %0.2f\n", time_left);
-            ready_queue[i].time_next_execution = time_left;
+            ready_queue[i].time_next_execution = 0;
             time_left = 0;
             // fprintf(output_file, "%0.2f\n", ready_queue[i].time_next_execution);
         }
@@ -321,9 +325,9 @@ find_next_decision_point()
             return 2;
         }
 
-        next_decision_point = (current_time + ready_queue[current_job_ready_queue_index].time_next_execution < jobs[current_job_overall_job_index + 1].arrival_time) ? current_time + ready_queue[current_job_ready_queue_index].time_next_execution : jobs[current_job_overall_job_index + 1].arrival_time;
+        next_decision_point = (current_time + ready_queue[current_job_ready_queue_index].time_left < jobs[current_job_overall_job_index + 1].arrival_time) ? current_time + ready_queue[current_job_ready_queue_index].time_left : jobs[current_job_overall_job_index + 1].arrival_time;
 
-        if (current_time + ready_queue[current_job_ready_queue_index].time_next_execution < jobs[current_job_overall_job_index + 1].arrival_time)
+        if (current_time + ready_queue[current_job_ready_queue_index].time_left < jobs[current_job_overall_job_index + 1].arrival_time)
             return 1;
         else
             return 2;
@@ -341,8 +345,14 @@ find_next_decision_point()
             return 1;
         }
         // fprintf(output_file, "current job index = %d, num ready queue: %d\n", current_job_overall_job_index, num_job_in_ready_queue);
+        float overheads = FREQUENCY_CALCULATION_OVERHEAD;
+        if (event == 1)
+            overheads += FREQUENCY_CHANGE_OVERHEAD;
 
-        next_decision_point += ready_queue[current_job_ready_queue_index].time_next_execution;
+        if (ready_queue[current_job_ready_queue_index].time_left + overheads < end_of_execution_time)
+            next_decision_point += ready_queue[current_job_ready_queue_index].time_left + FREQUENCY_CALCULATION_OVERHEAD + FREQUENCY_CHANGE_OVERHEAD;
+        else
+            next_decision_point = end_of_execution_time;
         return 1;
     }
 }
@@ -401,6 +411,9 @@ complete_job()
     if (current_job_overall_job_index == num_jobs - 1 && num_job_in_ready_queue == 0) // If the job queues are empty.
         return;
 
+    // Adding the dynamic power consumed by this execution to the total.
+    add_dynamic_energy();
+
     fprintf(output_file, "Job J%d,%d: Finished execution at t=%0.2f. Dynamic energy consumed: %0.2f.\n", ready_queue[current_job_ready_queue_index].task_num, ready_queue[current_job_ready_queue_index].instance_num, current_time, ready_queue[current_job_ready_queue_index].dynamic_energy_consumed);
 
     // Searching for the same job in the jobs queue so as to update it with run-time metadata.
@@ -444,24 +457,37 @@ run_job()
     if (current_job_overall_job_index == num_jobs - 1 && num_job_in_ready_queue == 0) // If all the jobs are completed.
         return;
 
-    // Finding the next execution time.
-    int return_value = find_next_decision_point(); 
-    float execution_time = next_decision_point - current_time;
+    if (current_time > end_of_execution_time)
+        return;
 
     current_task = ready_queue[current_job_ready_queue_index].task_num;
     current_task_instance = ready_queue[current_job_ready_queue_index].instance_num;
 
+    if ((prev_task != -1) && ((current_task != prev_task) || (current_task_instance != prev_task_instance && current_task == prev_task)))
+    {
+        num_context_switches++;
+    }
+
     if ((prev_return_value == 2) && ((current_task != prev_task) || (current_task_instance != prev_task_instance && current_task == prev_task))) // If there was a preemption when the latest job arrived to the ready queue.
     {
-        fprintf(output_file, "Job J%d,%d was preempted.\n", prev_task, prev_task_instance);
+        fprintf(output_file, "Job J%d,%d was preempted. Preemption overhead: %0.2f + %0.2f = %0.2f\n", prev_task, prev_task_instance, current_time, PREEMPTION_OVERHEAD, current_time + PREEMPTION_OVERHEAD);
+        current_time += PREEMPTION_OVERHEAD;
         num_preemptions++;
     }
 
     if (prev_task != current_task) // A cache impact point can happen even when there was no preemption, but a voluntary context switch.
             num_cache_impact_points++;
 
-    // Adding the dynamic power consumed by this execution to the total.
-    add_dynamic_energy();
+    
+    // Finding the next execution time.
+    int return_value = find_next_decision_point(); 
+    float execution_time = next_decision_point - current_time;
+
+    if (next_decision_point > end_of_execution_time)
+    {
+        next_decision_point = end_of_execution_time;
+        execution_time = end_of_execution_time - current_time;
+    }
 
     // Updating meta-data.
     ready_queue[current_job_ready_queue_index].time_executed += execution_time;
@@ -520,7 +546,7 @@ print_finished_jobs()
     }
     else
     {
-        fprintf(output_file, "%d number of jobs are still left.\n", num_jobs);
+        fprintf(output_file, "%d number of jobs are still left.\n", num_jobs - count);
         fprintf(output_file, "List of jobs still left: ");
         for (int i = 0; i < num_jobs; i++)
         {
@@ -551,13 +577,11 @@ add_dynamic_energy()
     // Dynamic power consumed = v * v * f * c. (Let c = 1 is constant).
     // Dynamic energy consumed = Dynamic power * time.
     // Dynamic energy = v * v * f * time.
-    float dynamic_energy = execution_voltage * execution_voltage * execution_freq * job.time_next_execution;
+    float dynamic_energy = execution_voltage * execution_voltage * execution_freq * job.time_executed;
 
     total_dynamic_energy += dynamic_energy;
 
     ready_queue[current_job_ready_queue_index].dynamic_energy_consumed += dynamic_energy;
-
-    fprintf(output_file, "Dynamic energy consumed by J%d,%d: %0.2f\n", job.task_num, job.instance_num, dynamic_energy);
 
     return;
 }
@@ -576,7 +600,7 @@ scheduler()
         return;
     }
 
-    if (current_job_ready_queue_index == 0 && current_job_overall_job_index == num_jobs - 1) // If all the jobs are completed.
+    if (num_job_in_ready_queue == 0 && current_job_overall_job_index == num_jobs - 1) // If all the jobs are completed.
     {
         find_next_decision_point();
         find_next_deadline();
@@ -585,6 +609,8 @@ scheduler()
     }
     
     int jobs_added = 0; // To find the number of jobs added this call of the scheduler.
+
+    event = 2;
 
     // Adding jobs to the ready queue.
     while (1)
@@ -598,6 +624,7 @@ scheduler()
         // If a job has arrived.
         if (jobs[current_job_overall_job_index + 1].admitted == false && current_time >= jobs[current_job_overall_job_index + 1].arrival_time) // Since jobs queue is sorted based on arrival time.
         {
+            event = 1;
             add_job();
             find_execution_time_periodic_job();
             jobs_added++;
@@ -638,7 +665,6 @@ scheduler()
             return;
         else
         {
-            num_context_switches++;
             scheduler();
         }
     }
@@ -660,9 +686,6 @@ scheduler()
     // All the jobs that run from the ready queue will be from index 0 of the ready queue as the ready queue is sorted based on priority (which is the period in case of RM).
     current_job_ready_queue_index = 0;
     run_job();
-
-    if (num_job_in_ready_queue > 0 && current_job_overall_job_index < num_jobs - 1) // If this was not the last job to execute.
-        num_context_switches++;
 
     // print_finished_jobs();
     

@@ -209,7 +209,7 @@ find_avg_percentage_execution()
         numerator += job.aet;
         denominator += job.wcet;
     }
-    
+
     return numerator / denominator * 100;
 }
 
