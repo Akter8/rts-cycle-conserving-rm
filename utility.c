@@ -182,7 +182,7 @@ find_first_in_phase_time()
 void
 find_end_of_execution_time()
 {
-    if (first_in_phase_time  <= 2 * hyperperiod)
+    if (first_in_phase_time  != -1 && first_in_phase_time <= 2 * hyperperiod)
     {
         fprintf(output_file, "First in-phase time < 2 * hyperperiod. Scheduling till first in-phase time + hyperperiod.\n");
         end_of_execution_time = first_in_phase_time + hyperperiod;
@@ -212,7 +212,7 @@ calculate_num_instances_of_tasks()
     find_task_utilisation();
 
     fprintf(output_file, "Hyperperiod: %ld\n", hyperperiod);
-    fprintf(output_file, "First in-phase time: %ld\n", first_in_phase_time);
+    fprintf(output_file, "First in-phase time: %ld (will be = -1 if first in-phase time not <= 2 * hyperperiod).\n", first_in_phase_time);
 
     // End of execution time is min(3*hyperperiod, first in-phase time + hyperperiod).
     find_end_of_execution_time();
@@ -220,7 +220,7 @@ calculate_num_instances_of_tasks()
 
     for (int i = 0; i < num_tasks; i++) // Iterating through each task in the task-set.
     {
-        tasks[i].num_instances = ((int) end_of_execution_time) / tasks[i].period; // Floor function automatically happens in integer division.
+        tasks[i].num_instances = ((int) end_of_execution_time + 1 - tasks[i].phase) / tasks[i].period; // Floor function automatically happens in integer division.
     }
 
     return;

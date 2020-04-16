@@ -155,12 +155,20 @@ allocate_time()
     {
         if (ready_queue[i].time_left + overheads <= time_left) // If more allocation can be done after this allocation.
         {
-            ready_queue[i].time_next_execution =  ready_queue[i].time_left - overheads;
-            time_left = time_left - ready_queue[i].time_left - overheads;
+            if (ready_queue[i].time_left > overheads)
+            {
+                ready_queue[i].time_next_execution =  ready_queue[i].time_left - overheads;
+                time_left -= ready_queue[i].time_left - overheads;
+            }
+            else
+            {
+                ready_queue[i].time_next_execution = ready_queue[i].time_left;
+                time_left -= ready_queue[i].time_left;
+            }
         }
         else // If this is the last non-zero allocation.
         {
-            ready_queue[i].time_next_execution = 0;
+            ready_queue[i].time_next_execution = time_left;
             time_left = 0;
         }
     }
@@ -186,12 +194,12 @@ select_frequency()
     // Finding the task utilisation at the current time till the next deadline.
     for (int i = 0; i < num_job_in_ready_queue; i++)
     {
-        dynamic_task_utilisation += ready_queue[i].time_next_execution;
+        if (ready_queue[i].time_next_execution > 0)
+            dynamic_task_utilisation += ready_queue[i].time_next_execution;
     }
     dynamic_task_utilisation = dynamic_task_utilisation / time_left;
     
     // Based on the current task utilisation, we calculate the best fit frequency.
-
     if (dynamic_task_utilisation >= freq_and_voltage[num_freq_levels - 1].freq) // The case when the task utilisation is >= Fmax.
     {
         current_freq_and_voltage_index = num_freq_levels - 1;
@@ -535,35 +543,43 @@ run_job()
 void
 print_finished_jobs()
 {
-    fprintf(output_file, "\nPrinting finished jobs.\n");
+    fprintf(output_file, "\nPrinting job details.\n");
+    fprintf(statistics_file, "Printing job details.\n");
     int count = 0;
     for (int i = 0; i < num_jobs; i++) // Iterating through all the jobs.
     {
         if (jobs[i].alive == false) // The job is not alive if it has completed.
         {
             fprintf(output_file, "J%d,%d ", jobs[i].task_num, jobs[i].instance_num);
+            fprintf(statistics_file, "J%d,%d ", jobs[i].task_num, jobs[i].instance_num);
             count++;
         }
     }
     fprintf(output_file, "\nNumber of finished jobs: %d\n", count);
+    fprintf(statistics_file, "\nNumber of finished jobs: %d\n", count);
 
     // If all the jobs are done.
     if (count == num_jobs)
     {
         fprintf(output_file, "All the jobs are done.\n");
+        fprintf(statistics_file, "All the jobs are done.\n");
     }
     else
     {
-        fprintf(output_file, "%d number of jobs are still left.\n", num_jobs - count);
+        fprintf(output_file, "Number of unfinished jobs: %d\n", num_jobs - count);
+        fprintf(statistics_file, "Number of unfinished jobs: %d\n", num_jobs - count);
         fprintf(output_file, "List of jobs still left: ");
+        fprintf(statistics_file, "List of jobs still left: ");
         for (int i = 0; i < num_jobs; i++)
         {
             if (jobs[i].alive == true)
+            {
                 fprintf(output_file, "J%d,%d ", jobs[i].task_num, jobs[i].instance_num);
+                fprintf(statistics_file, "J%d,%d ", jobs[i].task_num, jobs[i].instance_num);
+            }
         }
-        
+        fprintf(statistics_file, "\n");
     }
-    
 
     return;
 }
@@ -664,11 +680,13 @@ scheduler()
         if (num_job_in_ready_queue == 0 && current_job_overall_job_index >= num_jobs - 1) // If the final job has completed.
             return;
         else
-
             scheduler();
     }
+    
+    // These checks make sure that none of the overhead times are added once the simulation time is done.
+    if (current_time >= end_of_execution_time)
+        return;
 
-    // This check makes sure none of the overhead times are added once the simulation time is done.
     if (num_job_in_ready_queue == 0 && current_job_overall_job_index >= num_jobs - 1) // If the final job has completed.
         return;
 

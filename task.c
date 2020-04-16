@@ -132,9 +132,12 @@ sort_tasks_comparator(const void *a, const void *b)
     {
         return task_a.period - task_b.period;
     }
-    else // Else compare based on their wcet.
+    else // Else compare based on their wcet if they're not equal.
     {
-        return task_a.wcet - task_b.wcet;
+        if (task_a.wcet != task_b.wcet)
+            return task_a.wcet - task_b.wcet;
+        else
+            return task_a.phase - task_b.phase; // Else compare based on their phases.
     }
     
 }
@@ -175,6 +178,12 @@ print_response_times()
         for (int j = 0; j < task.num_instances; j++) // Iterates through each instance of the task.
         {
             response_time = task.response_times[j];
+
+            if (response_time <= 0)
+            {
+                fprintf(statistics_file, "ND, ");
+                continue;
+            }
 
             fprintf(statistics_file, "%0.1f, ", response_time);
 
@@ -271,6 +280,12 @@ print_execution_times()
         {
             execution_time = task.execution_times[j];
 
+            if (execution_time <= 0)
+            {
+                fprintf(statistics_file, "ND, ");
+                continue;
+            }
+
             fprintf(statistics_file, "%0.1f, ", execution_time);
 
             avg += execution_time;
@@ -307,6 +322,12 @@ print_waiting_times()
         {
             // Waiting time = response time - execution time.
             waiting_time = task.response_times[j] - task.execution_times[j];
+
+            if (waiting_time < 0)
+            {
+                fprintf(statistics_file, "ND, ");
+                continue;
+            }
 
             fprintf(statistics_file, "%0.1f, ", waiting_time);
 
@@ -347,6 +368,12 @@ print_execution_freqs()
         {
             execution_freq = freq_and_voltage[task.execution_freq_indices[j]].freq;
             execution_voltage = freq_and_voltage[task.execution_freq_indices[j]].voltage;
+
+            if (task.execution_times[j] <= 0)
+            {
+                fprintf(statistics_file, "ND (ND), ");
+                continue;
+            }
 
             fprintf(statistics_file, "%0.2f (%0.2fV), ", execution_freq, execution_voltage);
 
@@ -389,6 +416,12 @@ print_dynamic_energy_consumed()
         for (int j = 0; j < task.num_instances; j++) // Iterates through each task instance of the chosen task.
         {
             dynamic_energy = task.dynamic_energy_consumed[j];
+
+            if (dynamic_energy <= 0)
+            {
+                fprintf(statistics_file, "ND, ");
+                continue;
+            }
 
             fprintf(statistics_file, "%0.2f, ", dynamic_energy);
 
