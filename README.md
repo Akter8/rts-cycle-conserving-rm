@@ -1,4 +1,7 @@
-# RTS-Assignment-3: Cycle Conserving RM
+# RTS-Assignment-3
+
+* Group number: 1
+* Topic: Cycle Conserving RM
 
 ## Contributors
 
@@ -11,13 +14,10 @@
 
 ## Tasks left
 
-* [X] Fix the bug related to 0 energy consumed for every job that runs.
-* [ ] Test the scheduler for bugs with task sets with task util > 1.
+* [ ] Test for inputs which will run till 3 * hyperperiod / do not have in-phase time.
 * [ ] Convert as many void functions to ones with non-void return values.
 * [ ] Reduce the number of global variables as much as possible.
-* [ ] Write the reason why phase, period and deadlines are integers.
 * [ ] As of now, everything works till hyperperiod, make it work till min(3 * hyperperiod, first in-phase time + hyperperiod).
-* [ ] Make the driver module and function to have only 20 lines of code at max.
 * [ ] Convert README.md to README.txt before submission.
 * [ ] Rename the tar file of the program to the group number.
 
@@ -65,4 +65,9 @@
 * Using the data-structures previously defined, the program simulates the dynamic scheduling of the task-set using the given frequency (and voltage) input, also while dynamically changing the frequency and voltage at decision points of the schedule.
 * Then the program outputs the schedule and the various statistics of execution of scheduler.
 
-## Assumptions
+## Assumptions and limitations
+
+* The phase, period and deadline parameters of a task can only be integers. This is because integers do not cause a loss of accuracy and integers are much easier to work with in terms of schedulers with non-integer granularities.
+* The actual execution time essentially calculated and known before hand in this simulation so as to calculate the next decision point. Otherwise it is not possible to simulate a schedule by only calling the scheduler at decision points.
+* In the CC-RM algorithm originally devised by Pillai et al, the allocate_cycles() function is only called when a new job arrives. In this program, both allocate_cycles and select_frequency() are called at every decision point as jobs run from 50%-100% of their wcet and the actual execution time is not known by the allocate_cycles().
+* Task-sets with worst-case task utilisation > 1 might or might not be schedulable because psuedo random numbers are being used to find the actual execution time. So the simulation still runs for task-sets with worst-case task utilisation > 1, only that it might not finish scheduling.

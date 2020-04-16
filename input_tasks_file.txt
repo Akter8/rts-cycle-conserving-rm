@@ -1,13 +1,13 @@
 4
-0   5	1	7
-0   6	2	12
-0   10	1	10
-0   15	1	15
+0   4   1   4
+0   5   1   5
+0   20  4   20
+0   10  6   10
 
 --------------------------------------------
 How to:
-First line contains the number of tasks in the task set.
-Each subsequent line contains the phase, period, wcet and deadline respectively.
+First line contains the number of tasks in the task set (single int).
+Each subsequent line contains the phase, period, wcet and deadline respectively (int, int, float, int).
 
 Sample inputs:
 4

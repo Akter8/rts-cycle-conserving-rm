@@ -116,44 +116,6 @@ start_scheduler()
 
 
 /*
- * Pre-condition: Two job instances from the ready queue.
- * Post-condition: The comparision value of comparing the two given jobs.
- * 
- * Sorts based on period of corresponding task. If periods are same, then sorts based on absolute deadline of the jobs. 
- */
-int
-sort_ready_queue_comparator(const void *a, const void *b)
-{
-    Job job_a, job_b;
-    job_a = *((Job *) a);
-    job_b = *((Job *) b);
-
-    // Checking if the periods are equal.
-    if (tasks[job_a.sorted_task_num].period != tasks[job_b.sorted_task_num].period)
-    {
-        return tasks[job_a.sorted_task_num].period - tasks[job_b.sorted_task_num].period;
-    }
-    else
-    {
-        // Sorting on absolute deadline.
-        return job_a.absolute_deadline - job_b.absolute_deadline;
-    }
-}
-
-
-/*
- * Pre-condition: Unsorted ready queue.
- * Post-condition: Sorted ready queue.
- */
-void
-sort_ready_queue()
-{
-    qsort(ready_queue, num_job_in_ready_queue, sizeof(Job), sort_ready_queue_comparator);
-
-    return;
-}
-
-/*
  * Pre-condition: Sorted ready queue.
  * Post-condition: Prints the ready queue onto the output file.
  */
@@ -181,10 +143,10 @@ allocate_time()
 {
     find_next_deadline();
     float time_left = next_deadline - current_time;
-    // fprintf(output_file, "next deadline: %ld, current time: %0.2f\n", next_deadline, current_time);
 
     float overheads = FREQUENCY_CALCULATION_OVERHEAD;
-    if (event == 1)
+    if (event == 1) // Event is 1 when there is a new job arrival.
+    // A new job arrival MAY cause a frequency change, but a job termination will surely not.
         overheads += FREQUENCY_CHANGE_OVERHEAD;
 
     // Jobs are already sorted based on period/priority in the ready queue.
@@ -200,7 +162,6 @@ allocate_time()
         {
             ready_queue[i].time_next_execution = 0;
             time_left = 0;
-            // fprintf(output_file, "%0.2f\n", ready_queue[i].time_next_execution);
         }
     }
     
@@ -339,21 +300,27 @@ find_next_decision_point()
     }
     else // If last job.
     {
-        if (num_job_in_ready_queue == 0) // If the ready queue is empty.
+        if (current_job_overall_job_index >= num_jobs - 1 && num_job_in_ready_queue == 0) // If the ready queue is empty.
         {
             next_decision_point = end_of_execution_time;
-            return 1;
+            return 2;
         }
-        // fprintf(output_file, "current job index = %d, num ready queue: %d\n", current_job_overall_job_index, num_job_in_ready_queue);
+
         float overheads = FREQUENCY_CALCULATION_OVERHEAD;
-        if (event == 1)
+        if (event == 1) // Event is 1 when there is a new job arrival.
+        // A new job arrival MAY cause a frequency change, but a job termination will surely not.
             overheads += FREQUENCY_CHANGE_OVERHEAD;
 
         if (ready_queue[current_job_ready_queue_index].time_left + overheads < end_of_execution_time)
+        {
             next_decision_point += ready_queue[current_job_ready_queue_index].time_left + FREQUENCY_CALCULATION_OVERHEAD + FREQUENCY_CHANGE_OVERHEAD;
+            return 1;
+        }
         else
+        {
             next_decision_point = end_of_execution_time;
-        return 1;
+            return 2;
+        }
     }
 }
 
@@ -379,6 +346,30 @@ find_execution_time_periodic_job()
 
 
 /*
+ * Pre-condition: An unsorted ready queue, unsorted only because of the last element.
+ * Post-condition: Puts the last element into the right place based on the period of the jobs.
+ */
+void
+insert_job_ready_queue()
+{
+    if (num_job_in_ready_queue == 1) // The job is already in the right place if this is the case.
+        return;
+
+    Job job_to_insert = ready_queue[num_job_in_ready_queue - 1];
+
+    int i = num_job_in_ready_queue - 2;
+    while (i >= 0 && (tasks[jobs[i].sorted_task_num].period > tasks[job_to_insert.sorted_task_num].period || (tasks[jobs[i].sorted_task_num].period == tasks[job_to_insert.sorted_task_num].period && jobs[i].absolute_deadline > job_to_insert.absolute_deadline)))
+    {
+        ready_queue[i + 1] = ready_queue[i];
+        i--;
+    }
+    ready_queue[i + 1] = job_to_insert;
+
+    return;
+}
+
+
+/*
  * Pre-condition: Job which needs to be added to the ready queue.
  * Post-condition: Adds the new job onto ready queue.
  */
@@ -396,6 +387,12 @@ add_job()
     ready_queue = (Job *) realloc(ready_queue, sizeof(Job) * num_job_in_ready_queue);
     ready_queue[num_job_in_ready_queue - 1] = job;
 
+    // Find the execution time of the job.
+    find_execution_time_periodic_job();
+
+    // To add the job into the right place in the ready queue.
+    insert_job_ready_queue();
+
     return;
 }
 
@@ -407,8 +404,10 @@ add_job()
 void
 complete_job()
 {
+    if (current_time > end_of_execution_time)
+        return;
 
-    if (current_job_overall_job_index == num_jobs - 1 && num_job_in_ready_queue == 0) // If the job queues are empty.
+    if (current_job_overall_job_index >= num_jobs - 1 && num_job_in_ready_queue == 0) // If the job queues are empty.
         return;
 
     // Adding the dynamic power consumed by this execution to the total.
@@ -454,10 +453,11 @@ complete_job()
 void
 run_job()
 {
+    // Doing basic checks.
     if (current_job_overall_job_index == num_jobs - 1 && num_job_in_ready_queue == 0) // If all the jobs are completed.
         return;
 
-    if (current_time > end_of_execution_time)
+    if (current_time > end_of_execution_time) // If the simulation time is done.
         return;
 
     current_task = ready_queue[current_job_ready_queue_index].task_num;
@@ -497,6 +497,14 @@ run_job()
     fprintf(output_file, "Job J%d,%d: Executed from t=%0.2f to t=%0.2f. Time left after current execution: %0.2f\n", ready_queue[current_job_ready_queue_index].task_num, ready_queue[current_job_ready_queue_index].instance_num, current_time, next_decision_point, ready_queue[current_job_ready_queue_index].aet - ready_queue[current_job_ready_queue_index].time_executed);
 
     current_time = next_decision_point;
+
+    if (current_time >= end_of_execution_time && ready_queue[current_job_ready_queue_index].time_left != 0)
+    {
+        fprintf(output_file, "The job, J%d,%d could not finish as the simulation time got over.\n", ready_queue[current_job_ready_queue_index].task_num, ready_queue[current_job_ready_queue_index].instance_num);
+        return;
+    }
+
+
 
     if (return_value == 1) // If the job was completed.
     {
@@ -600,17 +608,15 @@ scheduler()
         return;
     }
 
-    if (num_job_in_ready_queue == 0 && current_job_overall_job_index == num_jobs - 1) // If all the jobs are completed.
+    if (num_job_in_ready_queue == 0 && current_job_overall_job_index >= num_jobs - 1) // If all the jobs are completed.
     {
         find_next_decision_point();
         find_next_deadline();
         current_time = next_decision_point;
         return;
     }
-    
-    int jobs_added = 0; // To find the number of jobs added this call of the scheduler.
 
-    event = 2;
+    event = 2; // Event is 2 when scheduler is called only due to a job completion.
 
     // Adding jobs to the ready queue.
     while (1)
@@ -624,10 +630,8 @@ scheduler()
         // If a job has arrived.
         if (jobs[current_job_overall_job_index + 1].admitted == false && current_time >= jobs[current_job_overall_job_index + 1].arrival_time) // Since jobs queue is sorted based on arrival time.
         {
-            event = 1;
-            add_job();
-            find_execution_time_periodic_job();
-            jobs_added++;
+            event = 1; // Event is 1 when scheduler is called due to a job arrival.
+            add_job(); // Whenever a new job arrives, the job gets sorted into its place in the ready queue.
         }
         else // If no more jobs are left.
         {
@@ -648,33 +652,25 @@ scheduler()
     if (num_job_in_ready_queue == 0)
     {
         // Finding the min freq and voltage possible to run the idle job.
-        current_freq_and_voltage_index = 0;
+        current_freq_and_voltage_index = 0; // Since the frequencies and voltages are sorted.
         current_freq_and_voltage = freq_and_voltage[0];
 
         find_next_decision_point();
 
         fprintf(output_file, "Idle job running at lowest frequency and voltage from t=%0.2f to %0.2f.\n", current_time, next_decision_point);
 
-        // fprintf(output_file, "Decision making overhead being added. %0.2f + %0.2f = %0.2f\n", current_time, DECISION_MAKING_OVERHEAD, current_time + DECISION_MAKING_OVERHEAD);
-        fflush(output_file);
-
-        current_time += DECISION_MAKING_OVERHEAD;
         current_time = next_decision_point;
         
         if (num_job_in_ready_queue == 0 && current_job_overall_job_index >= num_jobs - 1) // If the final job has completed.
             return;
         else
-        {
+
             scheduler();
-        }
     }
 
+    // This check makes sure none of the overhead times are added once the simulation time is done.
     if (num_job_in_ready_queue == 0 && current_job_overall_job_index >= num_jobs - 1) // If the final job has completed.
         return;
-
-    // Sorting ready queue before allocating time and finding dynamic freq.
-    sort_ready_queue();
-    // print_ready_queue();
 
     fprintf(output_file, "Decision making overhead being added. %0.2f + %0.2f = %0.2f\n", current_time, DECISION_MAKING_OVERHEAD, current_time + DECISION_MAKING_OVERHEAD);
     // Adding the decisioin making time.
@@ -686,8 +682,6 @@ scheduler()
     // All the jobs that run from the ready queue will be from index 0 of the ready queue as the ready queue is sorted based on priority (which is the period in case of RM).
     current_job_ready_queue_index = 0;
     run_job();
-
-    // print_finished_jobs();
     
     scheduler(); // Recursively calling the scheduler to run the next job.
 
