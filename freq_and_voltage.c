@@ -64,7 +64,6 @@ input_freq_and_voltage()
         }
 
     }
-    
 
     return;
 }
@@ -138,29 +137,18 @@ delete_freq_and_voltage()
 void
 find_static_freq_and_voltage()
 {
+    // Initialisation.
     static_freq_and_voltage_index = num_freq_levels - 1;
-
-    // If the CPU utilisation of the task-set is greater than the max frequency.
-    // if (task_utilisation >= freq_and_voltage[num_freq_levels-1].freq)
-    // {
-    //     static_freq_and_voltage_index = num_freq_levels - 1;
-    //     static_freq_and_voltage.freq = freq_and_voltage[static_freq_and_voltage_index].freq;
-    //     static_freq_and_voltage.voltage = freq_and_voltage[static_freq_and_voltage_index].voltage;
-
-    //     fprintf(output_file, "This task-set demands static freq: %0.2f, static voltage: %0.2f\n", static_freq_and_voltage.freq, static_freq_and_voltage.voltage);
-
-    //     return;
-    // }
 
     // Finding the highest possible frequency that fits the task-set.
     // Iterating through every frequency from highest to lowest.
     for (int i = num_freq_levels - 1; i >= 0; i--)
     {
-        if (rm_test(freq_and_voltage[i].freq) == 1)
+        if (rm_test(freq_and_voltage[i].freq) == 1) // If 1, then this freq fits.
         {
             static_freq_and_voltage_index = i;
         }
-        else
+        else // Else break and take the previous level that fit this task set.
         {
             break;
         }
@@ -176,13 +164,23 @@ find_static_freq_and_voltage()
 }
 
 
+/*
+ * Pre-condition: The task set information about periods and worst case execution time. The relative frequency at some level that is to be tested.
+ * Post-condition: Returns a value indicating the result of the test (1 = pass and 0 = fail).
+ */
 int
 rm_test(float relative_freq)
 {
-    for (int i = 0; i < num_tasks; i++)
+    /*
+     * For all tasks Ti and Periods sorted in ascending order,
+     *      if (floor(Pi/P1) * C1) + (floor(Pi/P2) * C2) + ......... + (floor(Pi/Pi) * Ci) <= relative_freq * Pi
+     *      then return 1
+     *      else 0
+     */
+    for (int i = 0; i < num_tasks; i++) // Iterating through all tasks.
     {
         float sum = 0;
-        for (int k = 0; k <= i; k++)
+        for (int k = 0; k <= i; k++) // Iterating till the ith period.
         {
             int int_divide = tasks[i].period / tasks[k].period;
             sum += int_divide * tasks[k].wcet;

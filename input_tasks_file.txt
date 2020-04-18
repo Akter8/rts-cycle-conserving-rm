@@ -9,7 +9,7 @@ First line contains the number of tasks in the task set (single int).
 Each subsequent line contains the phase, period, wcet and deadline respectively (int, int, float, int).
 
 --------------------------------------------
-Sample inputs:
+Test cases to test different scenarios:
 
 * In-phase test case with hyperperiod = 20 and utilisation < 1.
 4
@@ -42,7 +42,7 @@ Sample inputs:
 0   10  4   10
 
 
-* Test case NOT having an in-phase time.
+* Test case NOT having an in-phase time and task utilisation < 1.
 3
 2   3   1   3
 1   3   1   3

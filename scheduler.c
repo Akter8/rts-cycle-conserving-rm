@@ -10,18 +10,21 @@
 #include "utility.h"
 #include "freq_and_voltage.h"
 
+// Global variables required to schedule the jobs.
+
+// Output files.
 extern FILE *output_file;
 extern FILE *statistics_file;
 
+// Tasks, jobs and frequency (and voltage) data.
 extern int num_tasks;
 extern Task *tasks;
-
 extern int num_jobs;
 extern Job *jobs;
-
 extern int num_freq_levels;
 extern Freq_and_voltage *freq_and_voltage;
 
+// Related to static frequency, current frequency and number of freq changes and calculations.
 extern int static_freq_and_voltage_index;
 extern Freq_and_voltage static_freq_and_voltage;
 Freq_and_voltage current_freq_and_voltage;
@@ -29,16 +32,19 @@ int current_freq_and_voltage_index;
 extern long num_freq_calculations;
 extern long num_freq_changes;
 
+// Related to the ready queue.
 Job *ready_queue;
 int num_job_in_ready_queue;
 int current_job_ready_queue_index;
 int current_job_overall_job_index;
 
+// Timing parameters.
 extern long end_of_execution_time;
 float current_time;
 long next_deadline;
 float next_decision_point;
 
+// Related to statistics.
 long num_context_switches;
 long num_preemptions;
 long num_cache_impact_points;
@@ -48,11 +54,11 @@ int current_task_instance;
 int current_task;
 int prev_return_value;
 
-int event;
+int event; // Event due to which scheduler was called.
 
-extern float total_dynamic_energy;
+extern float total_dynamic_energy; // To hold total dynamic energy.
 
-
+// Functions.
 /*
  * Pre-condition: Arrays containing tasks, jobs and freq (along with corresponding voltage values) in a sorted manner. Also requires the static freq and voltage previously found.
  * Post-condition: Starts the dynamic scheduler and initialises the relevant data-structures.
@@ -66,37 +72,41 @@ start_scheduler()
     // Setting the seed before random numbers are generated.
     srand(time(NULL));
 
-    // Initialising variables.
+    // Initialising variables before the scheduler starts.
     num_job_in_ready_queue = 0;
     ready_queue = (Job *) malloc(sizeof(Job) * num_job_in_ready_queue);
     current_job_overall_job_index = -1;
     current_job_ready_queue_index = -1;
     current_time = 0;
-
     num_context_switches = 0;
     num_preemptions = 0;
     num_cache_impact_points = 0;
     prev_task = -1;
     current_task = -1;
     prev_return_value = -1;
-
     current_freq_and_voltage = freq_and_voltage[static_freq_and_voltage_index];
     current_freq_and_voltage_index = static_freq_and_voltage_index;
     num_freq_changes = 0;
     num_freq_calculations = 0;
-
     total_dynamic_energy = 0;
 
     // Starting the scheduler.
     scheduler(); // Since the scheduler is recursive, one call to the scheduler is enough.
 
-    print_finished_jobs();
 
     // Once the scheduler has finished scheduling.
     free(ready_queue);
 
     fprintf(output_file, "\n\nScheduler has finished scheduling.\n");
     fprintf(output_file, "\nDisclaimer: Please open the statistics file to view the statistics of the execution of the task set.\n");
+    print_finished_jobs();
+
+    // Printing disclaimers before the statistics.
+    fprintf(statistics_file, "------------------------------------------------------------\n");
+    fprintf(statistics_file, "Disclaimer-1: Context switch occurs when the job and/or task executing in the CPU changes.\n\n");
+    fprintf(statistics_file, "Disclaimer-2: A preemption occurs when due to the arrival of a new job the previous one was stopped, but the job to continue executing is not the previous one.\n\n");
+    fprintf(statistics_file, "Disclaimer-3: A cache impact point is one where the cache does not have any data relating to the new job being executed. Not all context switches result in cache impact point as two jobs of the same task can execute one after the other and this would not be a cache impact point as jobs of the same task have the same code section and mostly the same data section in general.\n\n");
+    fprintf(statistics_file, "Disclaimer-4: Frequency calculations happen at every decision point-- Job arrival and job termination.\n");
 
     // Printing statistics.
     fprintf(statistics_file, "------------------------------------------------------------\n");
@@ -108,7 +118,7 @@ start_scheduler()
     fprintf(statistics_file, "Total number of frequency calculations: %ld\n", num_freq_calculations);
     fprintf(statistics_file, "Total number of frequency changes: %ld\n", num_freq_changes);
 
-    // Print job statistics.
+    // Print job-wise statistics.
     capture_and_print_task_statistics();
 
     return;
@@ -155,7 +165,7 @@ allocate_time()
     {
         if (ready_queue[i].time_left + overheads <= time_left) // If more allocation can be done after this allocation.
         {
-            if (ready_queue[i].time_left > overheads)
+            if (ready_queue[i].time_left > overheads) // If the time left in execution is not very small.
             {
                 ready_queue[i].time_next_execution =  ready_queue[i].time_left - overheads;
                 time_left -= ready_queue[i].time_left - overheads;
@@ -291,27 +301,27 @@ find_next_decision_point()
         if (num_job_in_ready_queue == 0) // If the ready queue is empty.
         {
             next_decision_point = jobs[current_job_overall_job_index + 1].arrival_time;
-            return 2;
+            return 2; // Interrupted by job arrival.
         }
 
         next_decision_point = (current_time + ready_queue[current_job_ready_queue_index].time_left < jobs[current_job_overall_job_index + 1].arrival_time) ? current_time + ready_queue[current_job_ready_queue_index].time_left : jobs[current_job_overall_job_index + 1].arrival_time;
 
         if (current_time + ready_queue[current_job_ready_queue_index].time_left < jobs[current_job_overall_job_index + 1].arrival_time)
-            return 1;
+            return 1; // Finishes execution.
         else
-            return 2;
+            return 2; // Interrupted by job arrival.
     }
     else if (current_job_overall_job_index == -1) // If its the first job.
     {
         next_decision_point = jobs[current_job_overall_job_index + 1].arrival_time;
-        return 2;
+        return 2; // Interrupted by job arrival.
     }
     else // If last job.
     {
         if (current_job_overall_job_index >= num_jobs - 1 && num_job_in_ready_queue == 0) // If the ready queue is empty.
         {
             next_decision_point = end_of_execution_time;
-            return 2;
+            return 2; // Interrupted by job arrival.
         }
 
         float overheads = FREQUENCY_CALCULATION_OVERHEAD;
@@ -322,14 +332,16 @@ find_next_decision_point()
         if (ready_queue[current_job_ready_queue_index].time_left + overheads < end_of_execution_time)
         {
             next_decision_point += ready_queue[current_job_ready_queue_index].time_left + FREQUENCY_CALCULATION_OVERHEAD + FREQUENCY_CHANGE_OVERHEAD;
-            return 1;
+            return 1; // Finishes execution.
         }
         else
         {
             next_decision_point = end_of_execution_time;
-            return 2;
+            return 2; // Interrupted by job arrival.
         }
     }
+
+    // Error if control reaches here.
 }
 
 
@@ -365,6 +377,7 @@ insert_job_ready_queue()
 
     Job job_to_insert = ready_queue[num_job_in_ready_queue - 1];
 
+    // Insertion sort for just one element.
     int i = num_job_in_ready_queue - 2;
     while (i >= 0 && (tasks[jobs[i].sorted_task_num].period > tasks[job_to_insert.sorted_task_num].period || (tasks[jobs[i].sorted_task_num].period == tasks[job_to_insert.sorted_task_num].period && jobs[i].absolute_deadline > job_to_insert.absolute_deadline)))
     {
@@ -384,6 +397,9 @@ insert_job_ready_queue()
 void
 add_job()
 {
+    // All checks related to job arrival and jobs finishing are taken care by scheduler().
+    // This function just needs to add to the job to the ready queue.
+
     Job job = jobs[current_job_overall_job_index + 1];
     current_job_overall_job_index++;
 
@@ -412,13 +428,14 @@ add_job()
 void
 complete_job()
 {
-    if (current_time > end_of_execution_time)
+    // Basic checks before proceeding.
+    if (current_time > end_of_execution_time) // If the simulation time is up.
         return;
 
     if (current_job_overall_job_index >= num_jobs - 1 && num_job_in_ready_queue == 0) // If the job queues are empty.
         return;
 
-    // Adding the dynamic power consumed by this execution to the total.
+    // Finding and adding the dynamic power consumed by the execution of this job to the total.
     add_dynamic_energy();
 
     fprintf(output_file, "Job J%d,%d: Finished execution at t=%0.2f. Dynamic energy consumed: %0.2f.\n", ready_queue[current_job_ready_queue_index].task_num, ready_queue[current_job_ready_queue_index].instance_num, current_time, ready_queue[current_job_ready_queue_index].dynamic_energy_consumed);
@@ -471,11 +488,13 @@ run_job()
     current_task = ready_queue[current_job_ready_queue_index].task_num;
     current_task_instance = ready_queue[current_job_ready_queue_index].instance_num;
 
+    // Context switch is when the job and/or task executing in the CPU changes. 
     if ((prev_task != -1) && ((current_task != prev_task) || (current_task_instance != prev_task_instance && current_task == prev_task)))
     {
         num_context_switches++;
     }
 
+    // A preemption is when due to the arrival of a new job the previous one was stopped, but the job to continue executing is not the previous one.
     if ((prev_return_value == 2) && ((current_task != prev_task) || (current_task_instance != prev_task_instance && current_task == prev_task))) // If there was a preemption when the latest job arrived to the ready queue.
     {
         fprintf(output_file, "Job J%d,%d was preempted. Preemption overhead: %0.2f + %0.2f = %0.2f\n", prev_task, prev_task_instance, current_time, PREEMPTION_OVERHEAD, current_time + PREEMPTION_OVERHEAD);
@@ -483,6 +502,7 @@ run_job()
         num_preemptions++;
     }
 
+    // A cache impact point is one where the cache does not have any data relating to the new job being executed. Not all context switches result in cache impact point as two jobs of the same task can execute one after the other and this would not be a cache impact point as jobs of the same task have the same code section and mostly the same data section in general.
     if (prev_task != current_task) // A cache impact point can happen even when there was no preemption, but a voluntary context switch.
             num_cache_impact_points++;
 
@@ -504,16 +524,17 @@ run_job()
 
     fprintf(output_file, "Job J%d,%d: Executed from t=%0.2f to t=%0.2f. Time left after current execution: %0.2f\n", ready_queue[current_job_ready_queue_index].task_num, ready_queue[current_job_ready_queue_index].instance_num, current_time, next_decision_point, ready_queue[current_job_ready_queue_index].aet - ready_queue[current_job_ready_queue_index].time_executed);
 
+    // Updating current time.
     current_time = next_decision_point;
 
+    // Check to see if the job could not finish on time before the simulation ended.
     if (current_time >= end_of_execution_time && ready_queue[current_job_ready_queue_index].time_left != 0)
     {
         fprintf(output_file, "The job, J%d,%d could not finish as the simulation time got over.\n", ready_queue[current_job_ready_queue_index].task_num, ready_queue[current_job_ready_queue_index].instance_num);
         return;
     }
 
-
-
+    // If the job completed before the simulation was over.
     if (return_value == 1) // If the job was completed.
     {
         ready_queue[current_job_ready_queue_index].time_left = 0;
@@ -526,6 +547,7 @@ run_job()
         fprintf(output_file, "Job J%d,%d was interrupted by a new job arrival at t=%0.2f.\n", ready_queue[current_job_ready_queue_index].task_num, ready_queue[current_job_ready_queue_index].instance_num, current_time);
     }
 
+    // Updating previous task data to be used for next job execution to find preemption, context switches and cache impact points.
     prev_task = current_task;
     prev_task_instance = current_task_instance;
     prev_return_value = return_value;
@@ -543,7 +565,9 @@ run_job()
 void
 print_finished_jobs()
 {
-    fprintf(output_file, "\nPrinting job details.\n");
+    fprintf(output_file, "------------------------------------------------------------\n");
+    fprintf(output_file, "Printing job details.\n");
+    fprintf(statistics_file, "------------------------------------------------------------\n");
     fprintf(statistics_file, "Printing job details.\n");
     int count = 0;
     for (int i = 0; i < num_jobs; i++) // Iterating through all the jobs.
@@ -570,7 +594,7 @@ print_finished_jobs()
         fprintf(statistics_file, "Number of unfinished jobs: %d\n", num_jobs - count);
         fprintf(output_file, "List of jobs still left: ");
         fprintf(statistics_file, "List of jobs still left: ");
-        for (int i = 0; i < num_jobs; i++)
+        for (int i = 0; i < num_jobs; i++) // Iterating through all the jobs to find ones that are alive.
         {
             if (jobs[i].alive == true)
             {
@@ -618,6 +642,7 @@ add_dynamic_energy()
 void
 scheduler()
 {
+    // Basic checks before proceeding further.
     if (current_time >= end_of_execution_time) // If the maximum time of execution has been reached.
     {
         current_time = end_of_execution_time;
@@ -694,6 +719,7 @@ scheduler()
     // Adding the decisioin making time.
     current_time += DECISION_MAKING_OVERHEAD;
 
+    // DVFS part.
     allocate_time();
     select_frequency();
 

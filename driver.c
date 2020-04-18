@@ -48,6 +48,7 @@ int main(int argc, char const *argv[])
      * Finds the static voltage and frequency for the task set.
      * Finds the hyperperiod.
      * Finds the first in-phase time and time till which the scheduler has to schedule.
+     * Function definition in utility.c
      */
     open_files_and_init_data();
 
@@ -58,6 +59,7 @@ int main(int argc, char const *argv[])
      * Takes care of things to be done when exiting from the program.
      * Closes the input and output files.
      * Deallocates the data from the heap.
+     * Function definition in utility.c
      */
     close_files_and_delete_data();
     

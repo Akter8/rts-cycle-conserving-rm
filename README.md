@@ -14,10 +14,6 @@
 
 ## Tasks left
 
-* [ ] Test for inputs which will run till 3 * hyperperiod / do not have in-phase time.
-* [ ] Convert as many void functions to ones with non-void return values.
-* [ ] Reduce the number of global variables as much as possible.
-* [ ] As of now, everything works till hyperperiod, make it work till min(3 * hyperperiod, first in-phase time + hyperperiod).
 * [ ] Convert README.md to README.txt before submission.
 * [ ] Rename the tar file of the program to the group number.
 
@@ -67,7 +63,9 @@
 
 ## Assumptions and limitations
 
+* Frequency-calculation overhead time was given as 0.05 units, but there was nothing about frequency-change overhead time. So we have assumed a frequency-change time as 0.1 units of time (double of frequency-calculation overhead). (See configuration.h)
 * The phase, period and deadline parameters of a task can only be integers. This is because integers do not cause a loss of accuracy and integers are much easier to work with in terms of schedulers with non-integer granularities.
 * The actual execution time essentially calculated and known before hand in this simulation so as to calculate the next decision point. Otherwise it is not possible to simulate a schedule by only calling the scheduler at decision points.
 * In the CC-RM algorithm originally devised by Pillai et al, the allocate_cycles() function is only called when a new job arrives. In this program, both allocate_cycles and select_frequency() are called at every decision point as jobs run from 50%-100% of their wcet and the actual execution time is not known by the allocate_cycles().
 * Task-sets with worst-case task utilisation > 1 might or might not be schedulable because psuedo random numbers are being used to find the actual execution time. So the simulation still runs for task-sets with worst-case task utilisation > 1, only that it might not finish scheduling.
+* The program contains lots of global variables being used to transfer data between functions. Not a problem at this scale of programming, but would be a problem if and when the program would scale up.

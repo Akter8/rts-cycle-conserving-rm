@@ -206,6 +206,10 @@ find_avg_percentage_execution()
     {
         Job job = jobs[i];
 
+        // AET of jobs are initialised as -1. And they get updated only if the job finished.
+        if (job.aet < 0) // Same as if(job did not finish).
+            continue; // So as to not count them in the total.
+
         numerator += job.aet;
         denominator += job.wcet;
     }
