@@ -1,21 +1,6 @@
-# RTS-Assignment-3
+# Cycle Conserving RM Schedule Simulator
 
-* Group number: 1
-* Topic: Cycle Conserving RM
-
-## Contributors
-
-* Akhil Tarikere, 2017A7PS1916G
-* Ashish Patel, 2019H1030028G
-* Garima Mangal, 2019H1030561G
-* Ratti Sai Pavan, 2019H1030505G
-
-## Doubts
-
-## Tasks left
-
-* [ ] Convert README.md to README.txt before submission.
-* [ ] Rename the tar file of the program to the group number.
+Simulates a cycle conserving rate monotonic SVFS+DVFS scheduling algorithm for RTS.
 
 ## Description of Files
 
@@ -69,3 +54,8 @@
 * In the CC-RM algorithm originally devised by Pillai et al, the allocate_cycles() function is only called when a new job arrives. In this program, both allocate_cycles and select_frequency() are called at every decision point as jobs run from 50%-100% of their wcet and the actual execution time is not known by the allocate_cycles().
 * Task-sets with worst-case task utilisation > 1 might or might not be schedulable because psuedo random numbers are being used to find the actual execution time. So the simulation still runs for task-sets with worst-case task utilisation > 1, only that it might not finish scheduling.
 * The program contains lots of global variables being used to transfer data between functions. Not a problem at this scale of programming, but would be a problem if and when the program would scale up.
+
+## What can be added
+
+* Sporadic and aperiodic jobs to run along side the periodic jobs.
+* Instead of just a DVFS algorithm, a reduced context-switch and/or dynamic procrastination module can be added to make the program more energy efficient.
